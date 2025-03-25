@@ -276,9 +276,17 @@ export const userLoginSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
+// Document metadata schema
+const documentMetadataSchema = z.object({
+  fileName: z.string(),
+  fileType: z.string(),
+  documentType: z.string(),
+  size: z.number(),
+});
+
 export const kycRequestFormSchema = insertKycRequestSchema.extend({
   idNumberConfirm: z.string(),
-  documentFiles: z.array(z.any()).optional(),
+  documents: z.array(documentMetadataSchema).optional(),
 }).refine(data => data.idNumber === data.idNumberConfirm, {
   message: "ID numbers do not match",
   path: ["idNumberConfirm"],
