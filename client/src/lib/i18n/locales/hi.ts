@@ -10,6 +10,7 @@ export const hi = {
     delete: 'हटाएं',
     edit: 'संपादित करें',
     search: 'खोजें',
+    search_placeholder: 'वस्तुएं, सर्कल, या लोग खोजें',
     filter: 'फ़िल्टर',
     sort: 'क्रमबद्ध करें',
     more: 'अधिक',
@@ -159,6 +160,8 @@ export const hi = {
     success: {
       login: 'सफलतापूर्वक लॉग इन किया गया',
       register: 'सफलतापूर्वक पंजीकृत किया गया',
+      logout: 'सफलतापूर्वक लॉग आउट किया गया',
+      logout_description: 'आप अपने खाते से लॉग आउट हो गए हैं।',
       profile_update: 'प्रोफ़ाइल सफलतापूर्वक अपडेट की गई',
       post_created: 'पोस्ट सफलतापूर्वक बनाई गई',
       post_deleted: 'पोस्ट सफलतापूर्वक हटाई गई',
@@ -181,7 +184,9 @@ export const hi = {
       kyc_required: 'इस क्रिया के लिए केवाईसी सत्यापन आवश्यक है',
       already_exists: 'संसाधन पहले से मौजूद है',
       password_mismatch: 'पासवर्ड मेल नहीं खाते',
-      connection_failed: 'सर्वर से कनेक्ट नहीं हो सका'
+      connection_failed: 'सर्वर से कनेक्ट नहीं हो सका',
+      search_not_implemented: 'खोज अभी उपलब्ध नहीं है',
+      logout_failed: 'लॉग आउट विफल'
     }
   }
 };

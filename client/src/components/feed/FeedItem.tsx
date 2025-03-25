@@ -21,7 +21,25 @@ interface FeedItemProps {
     type: string;
     createdAt: string;
     imageUrl?: string;
-    metadata?: Record<string, any>;
+    metadata?: {
+      // For price_update posts
+      currentPrice?: string;
+      priceChange?: string;
+      changeDirection?: string;
+      arrivals?: string;
+      quality?: string;
+      
+      // For circle_update posts
+      activeBuyers?: string;
+      topCommodity?: string;
+      priceTrend?: string;
+      trendDirection?: string;
+      
+      // For news posts
+      headline?: string;
+      summary?: string;
+      url?: string;
+    };
     user: {
       id: number;
       name: string;
@@ -164,23 +182,44 @@ const FeedItem: React.FC<FeedItemProps> = ({ post }) => {
           )}
           
           {/* Specialized Cards based on post type */}
-          {post.type === 'price_update' && post.commodity && post.metadata && (
+          {post.type === 'price_update' && post.commodity && post.metadata && 
+            post.metadata.currentPrice && post.metadata.priceChange && 
+            post.metadata.changeDirection && post.metadata.arrivals && post.metadata.quality && (
             <CommodityCard 
               commodity={post.commodity.name}
               circle={post.circle?.name || ""}
-              data={post.metadata}
+              data={{
+                currentPrice: post.metadata.currentPrice,
+                priceChange: post.metadata.priceChange,
+                changeDirection: post.metadata.changeDirection,
+                arrivals: post.metadata.arrivals,
+                quality: post.metadata.quality
+              }}
             />
           )}
           
-          {post.type === 'circle_update' && post.circle && post.metadata && (
+          {post.type === 'circle_update' && post.circle && post.metadata &&
+            post.metadata.arrivals && post.metadata.activeBuyers && 
+            post.metadata.topCommodity && post.metadata.priceTrend && post.metadata.trendDirection && (
             <CircleActivityCard 
               circle={post.circle.name}
-              data={post.metadata}
+              data={{
+                arrivals: post.metadata.arrivals,
+                activeBuyers: post.metadata.activeBuyers,
+                topCommodity: post.metadata.topCommodity,
+                priceTrend: post.metadata.priceTrend,
+                trendDirection: post.metadata.trendDirection
+              }}
             />
           )}
           
-          {post.type === 'news' && post.metadata && (
-            <NewsCard data={post.metadata} />
+          {post.type === 'news' && post.metadata && 
+            post.metadata.headline && post.metadata.summary && post.metadata.url && (
+            <NewsCard data={{
+              headline: post.metadata.headline,
+              summary: post.metadata.summary,
+              url: post.metadata.url
+            }} />
           )}
         </div>
         
