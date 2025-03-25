@@ -392,46 +392,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Calculate match score for location-based commodity matching
-  const calculateMatchScore = (isUserInterested: boolean, distance: number, tradingVolume: number): number => {
-    // Base score
-    let score = 50;
-    
-    // User interest is the most important factor (+30)
-    if (isUserInterested) {
-      score += 30;
-    }
-    
-    // Distance factor (closer = better score, max +20)
-    // For a typical 100km radius search:
-    // - 0-20km: +20 points
-    // - 20-40km: +15 points
-    // - 40-60km: +10 points
-    // - 60-80km: +5 points
-    // - 80-100km: +0 points
-    if (distance <= 20) {
-      score += 20;
-    } else if (distance <= 40) {
-      score += 15;
-    } else if (distance <= 60) {
-      score += 10;
-    } else if (distance <= 80) {
-      score += 5;
-    }
-    
-    // Trading volume factor (higher = better score, max +20)
-    // Scale from 0 to 20 based on trading volume
-    // Using log scale to avoid extremely high volume dominating
-    if (tradingVolume > 0) {
-      // Log base 10 of trading volume, capped at 10,000,000
-      const logVolume = Math.min(Math.log10(tradingVolume), 7);
-      // Scale to 0-20 range: 0 points for volume=1, 20 points for volume=10M+
-      score += Math.round((logVolume / 7) * 20);
-    }
-    
-    return score;
-  };
+  // Original calculateMatchScore function has been replaced with a more sophisticated algorithm below
   
+  /**
+   * Calculate match score based on user interest, distance, and trading volume
+   * 
+   * @param isUserInterested - Whether the user is interested in this commodity
+   * @param distanceKm - Distance to the circle in kilometers
+   * @param tradingVolume - Trading volume of the commodity in the circle
+   * @returns A match score between 0-100 where higher is better
+   */
+  function calculateMatchScore(isUserInterested: boolean, distanceKm: number, tradingVolume: number): number {
+    // Base weights for each factor
+    const USER_INTEREST_WEIGHT = 0.5;  // 50% weight for user interest
+    const DISTANCE_WEIGHT = 0.3;       // 30% weight for distance
+    const VOLUME_WEIGHT = 0.2;         // 20% weight for trading volume
+    
+    // User interest score (0 or 1)
+    const interestScore = isUserInterested ? 1 : 0;
+    
+    // Distance score (inversely proportional to distance, 0-1 range)
+    // 0km = 1, 50km = 0.5, 100km = 0
+    const distanceScore = Math.max(0, Math.min(1, (100 - distanceKm) / 100)); 
+    
+    // Trading volume score (0-1 range)
+    // Normalize volume on a 0-1 scale (assuming 1000 tons is maximum expected volume)
+    const normalizedVolume = Math.min(tradingVolume / 1000, 1);
+    // Apply a logarithmic scale to give more weight to smaller volumes
+    const volumeScore = normalizedVolume === 0 ? 0 : (Math.log10(normalizedVolume * 9 + 1));
+    
+    // Calculate weighted score and scale to 0-100
+    const weightedScore = (
+      interestScore * USER_INTEREST_WEIGHT +
+      distanceScore * DISTANCE_WEIGHT +
+      volumeScore * VOLUME_WEIGHT
+    );
+    
+    // Convert to 0-100 scale and round to integer
+    return Math.round(weightedScore * 100);
+  }
+
   // Smart location-based commodity matching system
   app.get("/api/commodities/location-match", isAuthenticated, async (req, res) => {
     try {
@@ -504,7 +504,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               isUserInterested, 
               circle.distance || 0, 
               cc.tradingVolume || 0
-            )
+            ),
+            // Add more information to help users understand the match
+            matchReason: isUserInterested
+              ? "Based on your commodity interests and proximity"
+              : "Based on nearby trading activity" 
           });
         }
       }
