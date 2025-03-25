@@ -10,6 +10,7 @@ export const en = {
     delete: 'Delete',
     edit: 'Edit',
     search: 'Search',
+    search_placeholder: 'Search commodities, circles, or people',
     filter: 'Filter',
     sort: 'Sort',
     more: 'More',
@@ -175,6 +176,7 @@ export const en = {
     },
     errors: {
       login_failed: 'Login failed. Please check your credentials.',
+      logout_failed: 'Logout failed',
       register_failed: 'Registration failed. Please try again.',
       unauthorized: 'You are not authorized to perform this action',
       server_error: 'Server error. Please try again later.',
@@ -183,7 +185,8 @@ export const en = {
       kyc_required: 'KYC verification required for this action',
       already_exists: 'Resource already exists',
       password_mismatch: 'Passwords do not match',
-      connection_failed: 'Could not connect to server'
+      connection_failed: 'Could not connect to server',
+      search_not_implemented: 'Search not implemented'
     }
   }
 };

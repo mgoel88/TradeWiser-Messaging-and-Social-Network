@@ -57,8 +57,8 @@ const Header = () => {
     e.preventDefault();
     // Implement search functionality
     toast({
-      title: "Search not implemented",
-      description: `You searched for: ${searchQuery}`,
+      title: t("messages.errors.search_not_implemented"),
+      description: `${t("common.search")}: ${searchQuery}`,
     });
   };
 
@@ -95,7 +95,7 @@ const Header = () => {
                 </span>
                 <Input
                   type="text"
-                  placeholder="Search commodities, circles, or people"
+                  placeholder={t("common.search_placeholder")}
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-full bg-gray-50"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -136,20 +136,20 @@ const Header = () => {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={() => setLocation(`/profile/${user.id}`)}>
-                    My Profile
+                    {t("profile.edit_profile")}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setLocation("/kyc")}>
-                    KYC Verification
+                    {t("kyc.verification")}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleLogout}>
-                    Logout
+                    {t("auth.logout")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
               <Button variant="default" onClick={() => setLocation("/login")}>
-                Login
+                {t("auth.login")}
               </Button>
             )}
           </nav>
@@ -165,7 +165,7 @@ const Header = () => {
             </span>
             <Input
               type="text"
-              placeholder="Search"
+              placeholder={t("common.search")}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-full bg-gray-50"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -179,16 +179,16 @@ const Header = () => {
         <div className="md:hidden bg-white border-t border-gray-100">
           <div className="py-3 space-y-1">
             <Link href="/profile" className="flex items-center px-4 py-3 hover:bg-gray-50">
-              <span>My Profile</span>
+              <span>{t("profile.edit_profile")}</span>
             </Link>
             <Link href="/kyc" className="flex items-center px-4 py-3 hover:bg-gray-50">
-              <span>KYC Verification</span>
+              <span>{t("kyc.verification")}</span>
             </Link>
             <button 
               onClick={handleLogout}
               className="flex items-center px-4 py-3 hover:bg-gray-50 w-full text-left"
             >
-              <span>Logout</span>
+              <span>{t("auth.logout")}</span>
             </button>
           </div>
         </div>
