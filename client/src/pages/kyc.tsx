@@ -44,6 +44,14 @@ import {
 } from "@/components/ui/table";
 import { ID_TYPES, BUSINESS_TYPES, DOCUMENT_TYPES } from "@/lib/constants";
 
+// Document metadata interface
+interface DocumentMetadata {
+  fileName: string;
+  fileType: string;
+  documentType: string;
+  size: number;
+}
+
 // Form validation schema based on shared schema
 const kycFormSchema = z.object({
   idType: z.string().min(1, "Please select an ID type"),
@@ -52,7 +60,12 @@ const kycFormSchema = z.object({
   businessName: z.string().optional(),
   businessType: z.string().optional(),
   registrationNumber: z.string().optional(),
-  documents: z.array(z.string()).optional()
+  documents: z.array(z.object({
+    fileName: z.string(),
+    fileType: z.string(),
+    documentType: z.string(),
+    size: z.number()
+  })).optional()
 }).refine(data => data.idNumber === data.idNumberConfirm, {
   message: "ID numbers do not match",
   path: ["idNumberConfirm"],
@@ -113,8 +126,33 @@ const KYC: React.FC = () => {
     }
   });
   
+  // Transform files to document metadata before submitting
   const onSubmit = (data: KycFormValues) => {
-    submitKycMutation.mutate(data);
+    // Convert uploaded files to document metadata format
+    const documentMetadata = uploadedFiles.map(file => ({
+      fileName: file.name,
+      fileType: file.type,
+      documentType: file.name.includes('id') ? 'id_proof' : 
+                    file.name.includes('address') ? 'address_proof' : 
+                    file.name.includes('business') ? 'business_proof' : 
+                    file.name.includes('bank') ? 'bank_statement' : 'other',
+      size: file.size
+    }));
+    
+    // Include the document metadata in the form data
+    const formData = {
+      ...data,
+      documents: documentMetadata
+    };
+    
+    toast({
+      title: documentMetadata.length > 0 
+        ? `Submitting with ${documentMetadata.length} document(s)` 
+        : "Submitting verification request",
+      description: "Your information is being processed."
+    });
+    
+    submitKycMutation.mutate(formData);
   };
   
   // Redirect to login if not authenticated
@@ -478,13 +516,53 @@ const KYC: React.FC = () => {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {/* Demo data for uploaded documents - this will be empty for new users */}
-                          <TableRow className="text-gray-500 italic">
-                            <TableCell colSpan={4} className="text-center py-8">
-                              <FileText className="h-8 w-8 mx-auto mb-2 opacity-20" />
-                              <p>No documents uploaded yet</p>
-                            </TableCell>
-                          </TableRow>
+                          {uploadedFiles.length > 0 ? (
+                            uploadedFiles.map((file, index) => (
+                              <TableRow key={index}>
+                                <TableCell>
+                                  {file.name.includes('id') ? 'ID Proof' : 
+                                   file.name.includes('address') ? 'Address Proof' : 
+                                   file.name.includes('business') ? 'Business Proof' : 
+                                   file.name.includes('bank') ? 'Bank Statement' : 'Other Document'}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center">
+                                    {file.type.includes('pdf') ? 
+                                      <FileText className="h-4 w-4 mr-2 text-red-500" /> : 
+                                      <File className="h-4 w-4 mr-2 text-blue-500" />}
+                                    <span className="truncate max-w-[180px]">{file.name}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200">
+                                    Pending Upload
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={() => {
+                                      setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+                                      toast({
+                                        title: "File removed",
+                                        description: "Document removed from upload list."
+                                      });
+                                    }}
+                                  >
+                                    <X className="h-4 w-4 text-gray-500" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow className="text-gray-500 italic">
+                              <TableCell colSpan={4} className="text-center py-8">
+                                <FileText className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                                <p>No documents uploaded yet</p>
+                              </TableCell>
+                            </TableRow>
+                          )}
                         </TableBody>
                       </Table>
                     </TabsContent>
