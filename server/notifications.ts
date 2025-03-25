@@ -157,12 +157,11 @@ export async function simulatePriceUpdates(): Promise<void> {
         
         // Only generate updates if we have interested clients
         if (hasInterestedClients) {
-          // Get current price or generate a reasonable one based on commodity type
-          const basePrice = commodity.basePrice || 
-            (commodity.category === 'grain' ? 2500 : 
-             commodity.category === 'pulse' ? 6000 : 
-             commodity.category === 'oilseed' ? 4500 : 
-             commodity.category === 'spice' ? 12000 : 3000);
+          // Generate a reasonable base price based on commodity type
+          const basePrice = commodity.category === 'grain' ? 2500 : 
+                            commodity.category === 'pulse' ? 6000 : 
+                            commodity.category === 'oilseed' ? 4500 : 
+                            commodity.category === 'spice' ? 12000 : 3000;
           
           // Generate a random price change (-3% to +3%)
           const changePercentage = (Math.random() * 6) - 3;

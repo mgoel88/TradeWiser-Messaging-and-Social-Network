@@ -1285,6 +1285,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       const newListing = await storage.createListing(data);
+      
+      // Send real-time notification about new listing
+      notifyNewListing(newListing);
+      
       return res.status(201).json({ listing: newListing });
     } catch (err) {
       return handleZodError(err, res);
@@ -1513,6 +1517,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalAmount: data.quantity * (data.pricePerUnit || listing.pricePerUnit)
       });
       
+      // Send real-time notification to seller about the new offer
+      notifyOfferReceived(newOffer);
+      
       return res.status(201).json({ offer: newOffer });
     } catch (err) {
       return handleZodError(err, res);
@@ -1582,6 +1589,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sellerRating: null,
           sellerReview: null
         });
+        
+        // Send notification about the new trade
+        notifyTradeUpdate(trade);
         
         return res.json({ offer: updatedOffer, trade });
       }
@@ -1791,6 +1801,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const updatedTrade = await storage.updateTrade(tradeId, updates);
+      
+      // Send real-time notification about trade update
+      notifyTradeUpdate(updatedTrade);
+      
       return res.json({ trade: updatedTrade });
     } catch (err) {
       console.error(err);
