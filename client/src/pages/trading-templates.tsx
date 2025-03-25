@@ -1,211 +1,236 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'wouter';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useLocation } from 'wouter';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { 
-  PlusCircle, 
-  Search, 
-  ShoppingCart, 
-  Tag, 
-  Package, 
-  Truck, 
-  MessageSquare, 
-  Star,
-  Users,
-  Clock
-} from 'lucide-react';
+import { AnimatedSkeleton } from '@/components/ui/animated-skeleton';
 import { MessageTemplateForm } from '@/components/messages/MessageTemplateForm';
 import { TradeMessageComposer } from '@/components/messages/TradeMessageComposer';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { Plus, Edit, Trash2, Star, Clock, Send, Search, Filter } from 'lucide-react';
 
 export default function TradingTemplatesPage() {
-  const [search, setSearch] = useState('');
-  const [activeTab, setActiveTab] = useState('buy');
+  const [activeTab, setActiveTab] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [isTemplateFormOpen, setIsTemplateFormOpen] = useState(false);
-  const [isComposerOpen, setIsComposerOpen] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
+  const [isMessageComposerOpen, setIsMessageComposerOpen] = useState(false);
+  const [selectedTemplateType, setSelectedTemplateType] = useState<'buy_request' | 'sell_offer' | 'negotiation' | 'custom'>('buy_request');
   const [templateToEdit, setTemplateToEdit] = useState<any>(null);
-  const [messageType, setMessageType] = useState<'buy_request' | 'sell_offer' | 'negotiation'>('buy_request');
+  const [templateForMessage, setTemplateForMessage] = useState<any>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
 
-  // Get current user
-  const { data: session } = useQuery({
+  // Get user session
+  const { data: sessionData } = useQuery({
     queryKey: ['/api/auth/session'],
     queryFn: async () => {
-      try {
-        const res = await apiRequest('/api/auth/session');
-        return res;
-      } catch (err) {
-        return { user: null };
-      }
+      const res = await apiRequest('/api/auth/session');
+      return res;
     },
   });
 
-  const userId = session?.user?.id;
+  const userId = sessionData?.user?.id;
 
-  // Get user's templates
-  const { data: buyTemplates, isLoading: isLoadingBuyTemplates } = useQuery({
-    queryKey: ['/api/message-templates/user', userId, 'buy_request'],
+  // Get all templates
+  const { data: allTemplatesData, isLoading: isLoadingAllTemplates } = useQuery({
+    queryKey: ['/api/message-templates/user'],
+    queryFn: async () => {
+      const res = await apiRequest(`/api/message-templates/user/${userId}`);
+      return res.templates || [];
+    },
+    enabled: !!userId,
+  });
+
+  // Get buy request templates
+  const { data: buyRequestTemplatesData, isLoading: isLoadingBuyRequestTemplates } = useQuery({
+    queryKey: ['/api/message-templates/user', 'buy_request'],
     queryFn: async () => {
       const res = await apiRequest(`/api/message-templates/user/${userId}?type=buy_request`);
       return res.templates || [];
     },
-    enabled: !!userId
+    enabled: !!userId,
   });
 
-  const { data: sellTemplates, isLoading: isLoadingSellTemplates } = useQuery({
-    queryKey: ['/api/message-templates/user', userId, 'sell_offer'],
+  // Get sell offer templates
+  const { data: sellOfferTemplatesData, isLoading: isLoadingSellOfferTemplates } = useQuery({
+    queryKey: ['/api/message-templates/user', 'sell_offer'],
     queryFn: async () => {
       const res = await apiRequest(`/api/message-templates/user/${userId}?type=sell_offer`);
       return res.templates || [];
     },
-    enabled: !!userId
+    enabled: !!userId,
   });
 
-  const { data: negotiationTemplates, isLoading: isLoadingNegotiationTemplates } = useQuery({
-    queryKey: ['/api/message-templates/user', userId, 'negotiation'],
+  // Get negotiation templates
+  const { data: negotiationTemplatesData, isLoading: isLoadingNegotiationTemplates } = useQuery({
+    queryKey: ['/api/message-templates/user', 'negotiation'],
     queryFn: async () => {
       const res = await apiRequest(`/api/message-templates/user/${userId}?type=negotiation`);
       return res.templates || [];
     },
-    enabled: !!userId
+    enabled: !!userId,
   });
 
-  // Filtered templates based on search
-  const filteredBuyTemplates = buyTemplates?.filter(template => 
-    template.name.toLowerCase().includes(search.toLowerCase()) ||
-    template.template.toLowerCase().includes(search.toLowerCase())
-  );
-  
-  const filteredSellTemplates = sellTemplates?.filter(template => 
-    template.name.toLowerCase().includes(search.toLowerCase()) ||
-    template.template.toLowerCase().includes(search.toLowerCase())
-  );
-  
-  const filteredNegotiationTemplates = negotiationTemplates?.filter(template => 
-    template.name.toLowerCase().includes(search.toLowerCase()) ||
-    template.template.toLowerCase().includes(search.toLowerCase())
-  );
-
-  // Create a new template
-  const createTemplate = (template: any) => {
-    createTemplateMutation.mutate(template);
-  };
-
-  // Update an existing template
-  const updateTemplate = (template: any) => {
-    updateTemplateMutation.mutate(template);
-  };
-
-  // Delete a template
-  const deleteTemplate = (templateId: number) => {
-    if (confirm("Are you sure you want to delete this template?")) {
-      deleteTemplateMutation.mutate(templateId);
-    }
+  // Filter templates based on search query
+  const filterTemplates = (templates: any[]) => {
+    if (!searchQuery) return templates;
+    return templates?.filter(template => 
+      template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      template.template.toLowerCase().includes(searchQuery.toLowerCase())
+    );
   };
 
   // Create template mutation
   const createTemplateMutation = useMutation({
     mutationFn: async (template: any) => {
-      const data = await apiRequest('/api/message-templates', {
+      const response = await apiRequest('/api/message-templates', {
         method: 'POST',
-        body: JSON.stringify(template)
+        body: JSON.stringify(template),
       });
-      return data;
+      return response;
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/message-templates/user', userId] });
+    onSuccess: () => {
       toast({
-        title: "Template created",
-        description: "Your new template has been created successfully.",
+        title: 'Template created',
+        description: 'Your template has been created successfully',
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/message-templates/user'] });
+      setIsTemplateFormOpen(false);
+      setTemplateToEdit(null);
+    },
+    onError: () => {
+      toast({
+        title: 'Error',
+        description: 'There was an error creating your template',
+        variant: 'destructive',
       });
     },
-    onError: (error) => {
-      toast({
-        title: "Error creating template",
-        description: "There was an error creating your template. Please try again.",
-        variant: "destructive",
-      });
-    }
   });
 
   // Update template mutation
   const updateTemplateMutation = useMutation({
     mutationFn: async (template: any) => {
-      const data = await apiRequest(`/api/message-templates/${template.id}`, {
+      const response = await apiRequest(`/api/message-templates/${template.id}`, {
         method: 'PATCH',
-        body: JSON.stringify(template)
+        body: JSON.stringify(template),
       });
-      return data;
+      return response;
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/message-templates/user', userId] });
+    onSuccess: () => {
       toast({
-        title: "Template updated",
-        description: "Your template has been updated successfully.",
+        title: 'Template updated',
+        description: 'Your template has been updated successfully',
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/message-templates/user'] });
+      setIsTemplateFormOpen(false);
+      setTemplateToEdit(null);
+    },
+    onError: () => {
+      toast({
+        title: 'Error',
+        description: 'There was an error updating your template',
+        variant: 'destructive',
       });
     },
-    onError: (error) => {
-      toast({
-        title: "Error updating template",
-        description: "There was an error updating your template. Please try again.",
-        variant: "destructive",
-      });
-    }
   });
 
   // Delete template mutation
   const deleteTemplateMutation = useMutation({
     mutationFn: async (templateId: number) => {
-      const data = await apiRequest(`/api/message-templates/${templateId}`, {
-        method: 'DELETE'
+      await apiRequest(`/api/message-templates/${templateId}`, {
+        method: 'DELETE',
       });
-      return data;
+      return templateId;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/message-templates/user', userId] });
       toast({
-        title: "Template deleted",
-        description: "The template has been deleted successfully.",
+        title: 'Template deleted',
+        description: 'Your template has been deleted',
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/message-templates/user'] });
+    },
+    onError: () => {
+      toast({
+        title: 'Error',
+        description: 'There was an error deleting the template',
+        variant: 'destructive',
       });
     },
-    onError: (error) => {
-      toast({
-        title: "Error deleting template",
-        description: "There was an error deleting the template. Please try again.",
-        variant: "destructive",
-      });
-    }
   });
 
-  // Handle sending a message
-  const handleSendMessage = (message: any) => {
-    toast({
-      title: "Message sent",
-      description: "Your trade message has been sent successfully.",
-    });
+  // Handle create new template
+  const handleCreateTemplate = (templateType: 'buy_request' | 'sell_offer' | 'negotiation' | 'custom') => {
+    setSelectedTemplateType(templateType);
+    setTemplateToEdit(null);
+    setIsTemplateFormOpen(true);
   };
 
-  // Determine loading state
-  const isLoading = 
-    isLoadingBuyTemplates || 
-    isLoadingSellTemplates || 
-    isLoadingNegotiationTemplates;
+  // Handle edit template
+  const handleEditTemplate = (template: any) => {
+    setTemplateToEdit(template);
+    setIsTemplateFormOpen(true);
+  };
 
-  // Get template count by type
-  const buyTemplateCount = buyTemplates?.length || 0;
-  const sellTemplateCount = sellTemplates?.length || 0;
-  const negotiationTemplateCount = negotiationTemplates?.length || 0;
+  // Handle delete template
+  const handleDeleteTemplate = (templateId: number) => {
+    if (confirm('Are you sure you want to delete this template?')) {
+      deleteTemplateMutation.mutate(templateId);
+    }
+  };
 
-  // Template badge color
+  // Handle save template
+  const handleSaveTemplate = (template: any) => {
+    if (template.id) {
+      updateTemplateMutation.mutate(template);
+    } else {
+      createTemplateMutation.mutate(template);
+    }
+  };
+
+  // Handle use template for message
+  const handleUseTemplate = (template: any) => {
+    setTemplateForMessage(template);
+    setIsMessageComposerOpen(true);
+  };
+
+  // Handle message send
+  const handleMessageSend = (message: any) => {
+    toast({
+      title: 'Message sent',
+      description: message.broadcast 
+        ? `Broadcasting to ${message.recipientCount} recipients` 
+        : 'Your message has been sent',
+    });
+    setIsMessageComposerOpen(false);
+  };
+
+  // Template type badge color
   const getTemplateBadgeColor = (type: string) => {
     switch (type) {
       case 'buy_request':
@@ -221,423 +246,224 @@ export default function TradingTemplatesPage() {
     }
   };
 
-  // Handle new template click
-  const handleNewTemplateClick = (type: 'buy_request' | 'sell_offer' | 'negotiation') => {
-    setMessageType(type);
-    setTemplateToEdit(null);
-    setIsTemplateFormOpen(true);
-  };
-
-  // Handle use template click
-  const handleUseTemplateClick = (template: any) => {
-    setSelectedTemplate(template);
-    setMessageType(template.templateType as any);
-    setIsComposerOpen(true);
-  };
-
-  // Handle edit template click
-  const handleEditTemplateClick = (template: any) => {
-    setTemplateToEdit(template);
-    setIsTemplateFormOpen(true);
-  };
-
-  return (
-    <div className="container mx-auto py-8">
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold">Trading Templates</h1>
-            <p className="text-muted-foreground mt-1">
-              Create and manage templates for commodity trading messages
-            </p>
+  // Template card component
+  const TemplateCard = ({ template }: { template: any }) => (
+    <Card className="mb-4">
+      <CardHeader className="pb-2">
+        <div className="flex items-start justify-between">
+          <div className="flex flex-col">
+            <CardTitle className="text-lg">{template.name}</CardTitle>
+            <CardDescription>Last updated: {new Date(template.updatedAt).toLocaleDateString()}</CardDescription>
           </div>
-          <div className="flex gap-2">
-            <div className="relative w-full md:w-64">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Search templates..."
-                className="pl-8"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+          <Badge variant="outline" className={getTemplateBadgeColor(template.templateType)}>
+            {template.templateType === 'buy_request' && 'Buy Request'}
+            {template.templateType === 'sell_offer' && 'Sell Offer'}
+            {template.templateType === 'negotiation' && 'Negotiation'}
+            {template.templateType === 'custom' && 'Custom'}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-3">
+          {template.template}
+        </div>
+        <div className="flex items-center mt-4 text-xs text-muted-foreground">
+          {template.isFavorite && (
+            <div className="flex items-center mr-4">
+              <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400 mr-1" />
+              <span>Favorite</span>
             </div>
+          )}
+          <div className="flex items-center">
+            <Clock className="h-3.5 w-3.5 mr-1" />
+            <span>Used {template.usageCount} times</span>
           </div>
         </div>
+      </CardContent>
+      <CardFooter className="flex justify-end pt-2 gap-2">
+        <Button 
+          size="sm" 
+          variant="ghost"
+          onClick={() => handleEditTemplate(template)}
+        >
+          <Edit className="h-4 w-4 mr-1" />
+          Edit
+        </Button>
+        <Button 
+          size="sm" 
+          variant="ghost" 
+          className="text-destructive hover:text-destructive"
+          onClick={() => handleDeleteTemplate(template.id)}
+        >
+          <Trash2 className="h-4 w-4 mr-1" />
+          Delete
+        </Button>
+        <Button 
+          size="sm"
+          onClick={() => handleUseTemplate(template)}
+        >
+          <Send className="h-4 w-4 mr-1" />
+          Use
+        </Button>
+      </CardFooter>
+    </Card>
+  );
 
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <CardTitle>My Trading Templates</CardTitle>
-                <CardDescription>
-                  Use templates to quickly create buy requests, sell offers, and negotiations
-                </CardDescription>
-              </div>
-              <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
-                  onClick={() => handleNewTemplateClick('buy_request')}
-                  className="flex items-center gap-1"
-                >
-                  <PlusCircle className="h-4 w-4" />
-                  <span>New Buy Request</span>
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => handleNewTemplateClick('sell_offer')}
-                  className="flex items-center gap-1"
-                >
-                  <PlusCircle className="h-4 w-4" />
-                  <span>New Sell Offer</span>
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="buy" onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="buy" className="relative">
-                  Buy Requests
-                  {buyTemplateCount > 0 && (
-                    <Badge className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center">
-                      {buyTemplateCount}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="sell" className="relative">
-                  Sell Offers
-                  {sellTemplateCount > 0 && (
-                    <Badge className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center">
-                      {sellTemplateCount}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="negotiation" className="relative">
-                  Negotiations
-                  {negotiationTemplateCount > 0 && (
-                    <Badge className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center">
-                      {negotiationTemplateCount}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="buy" className="space-y-4 mt-4">
-                {isLoading ? (
-                  <div className="flex items-center justify-center h-36">
-                    <p className="text-muted-foreground">Loading templates...</p>
-                  </div>
-                ) : filteredBuyTemplates && filteredBuyTemplates.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {filteredBuyTemplates.map((template) => (
-                      <Card key={template.id} className="overflow-hidden">
-                        <CardHeader className="pb-2">
-                          <div className="flex items-start justify-between">
-                            <div className="flex flex-col">
-                              <CardTitle className="text-lg flex items-center gap-2">
-                                {template.name}
-                                {template.isFavorite && <Star className="h-4 w-4 text-amber-500" />}
-                              </CardTitle>
-                              <CardDescription>
-                                Buy Request Template
-                              </CardDescription>
-                            </div>
-                            <Badge 
-                              variant="outline" 
-                              className={getTemplateBadgeColor('buy_request')}
-                            >
-                              Open to Buy
-                            </Badge>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="pb-2">
-                          <div className="space-y-2">
-                            <div className="text-sm h-24 overflow-hidden text-ellipsis whitespace-pre-wrap border-l-2 border-muted pl-3">
-                              {template.template.substring(0, 200)}
-                              {template.template.length > 200 && '...'}
-                            </div>
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              <div className="flex items-center text-xs text-muted-foreground">
-                                <Clock className="h-3 w-3 mr-1" />
-                                Used {template.usageCount} times
-                              </div>
-                              {template.lastUsedAt && (
-                                <div className="flex items-center text-xs text-muted-foreground">
-                                  <Clock className="h-3 w-3 mr-1" />
-                                  Last used {new Date(template.lastUsedAt).toLocaleDateString()}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </CardContent>
-                        <CardFooter className="flex justify-between pt-2">
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handleEditTemplateClick(template)}
-                          >
-                            Edit
-                          </Button>
-                          <Button 
-                            variant="default" 
-                            size="sm"
-                            onClick={() => handleUseTemplateClick(template)}
-                          >
-                            Use Template
-                          </Button>
-                        </CardFooter>
-                      </Card>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center p-8 border rounded-lg">
-                    <ShoppingCart className="h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium">No buy request templates yet</h3>
-                    <p className="text-muted-foreground text-center mt-1 mb-4">
-                      Create templates to quickly send buy requests to your connections
-                    </p>
-                    <Button 
-                      onClick={() => handleNewTemplateClick('buy_request')}
-                      className="flex items-center gap-1"
-                    >
-                      <PlusCircle className="h-4 w-4" />
-                      <span>Create Your First Template</span>
-                    </Button>
-                  </div>
-                )}
-              </TabsContent>
-              
-              <TabsContent value="sell" className="space-y-4 mt-4">
-                {isLoading ? (
-                  <div className="flex items-center justify-center h-36">
-                    <p className="text-muted-foreground">Loading templates...</p>
-                  </div>
-                ) : filteredSellTemplates && filteredSellTemplates.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {filteredSellTemplates.map((template) => (
-                      <Card key={template.id} className="overflow-hidden">
-                        <CardHeader className="pb-2">
-                          <div className="flex items-start justify-between">
-                            <div className="flex flex-col">
-                              <CardTitle className="text-lg flex items-center gap-2">
-                                {template.name}
-                                {template.isFavorite && <Star className="h-4 w-4 text-amber-500" />}
-                              </CardTitle>
-                              <CardDescription>
-                                Sell Offer Template
-                              </CardDescription>
-                            </div>
-                            <Badge 
-                              variant="outline" 
-                              className={getTemplateBadgeColor('sell_offer')}
-                            >
-                              Offer for Sale
-                            </Badge>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="pb-2">
-                          <div className="space-y-2">
-                            <div className="text-sm h-24 overflow-hidden text-ellipsis whitespace-pre-wrap border-l-2 border-muted pl-3">
-                              {template.template.substring(0, 200)}
-                              {template.template.length > 200 && '...'}
-                            </div>
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              <div className="flex items-center text-xs text-muted-foreground">
-                                <Clock className="h-3 w-3 mr-1" />
-                                Used {template.usageCount} times
-                              </div>
-                              {template.lastUsedAt && (
-                                <div className="flex items-center text-xs text-muted-foreground">
-                                  <Clock className="h-3 w-3 mr-1" />
-                                  Last used {new Date(template.lastUsedAt).toLocaleDateString()}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </CardContent>
-                        <CardFooter className="flex justify-between pt-2">
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handleEditTemplateClick(template)}
-                          >
-                            Edit
-                          </Button>
-                          <Button 
-                            variant="default" 
-                            size="sm"
-                            onClick={() => handleUseTemplateClick(template)}
-                          >
-                            Use Template
-                          </Button>
-                        </CardFooter>
-                      </Card>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center p-8 border rounded-lg">
-                    <Tag className="h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium">No sell offer templates yet</h3>
-                    <p className="text-muted-foreground text-center mt-1 mb-4">
-                      Create templates to quickly send sell offers to your connections
-                    </p>
-                    <Button 
-                      onClick={() => handleNewTemplateClick('sell_offer')}
-                      className="flex items-center gap-1"
-                    >
-                      <PlusCircle className="h-4 w-4" />
-                      <span>Create Your First Template</span>
-                    </Button>
-                  </div>
-                )}
-              </TabsContent>
-              
-              <TabsContent value="negotiation" className="space-y-4 mt-4">
-                {isLoading ? (
-                  <div className="flex items-center justify-center h-36">
-                    <p className="text-muted-foreground">Loading templates...</p>
-                  </div>
-                ) : filteredNegotiationTemplates && filteredNegotiationTemplates.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {filteredNegotiationTemplates.map((template) => (
-                      <Card key={template.id} className="overflow-hidden">
-                        <CardHeader className="pb-2">
-                          <div className="flex items-start justify-between">
-                            <div className="flex flex-col">
-                              <CardTitle className="text-lg flex items-center gap-2">
-                                {template.name}
-                                {template.isFavorite && <Star className="h-4 w-4 text-amber-500" />}
-                              </CardTitle>
-                              <CardDescription>
-                                Negotiation Template
-                              </CardDescription>
-                            </div>
-                            <Badge 
-                              variant="outline" 
-                              className={getTemplateBadgeColor('negotiation')}
-                            >
-                              Negotiation
-                            </Badge>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="pb-2">
-                          <div className="space-y-2">
-                            <div className="text-sm h-24 overflow-hidden text-ellipsis whitespace-pre-wrap border-l-2 border-muted pl-3">
-                              {template.template.substring(0, 200)}
-                              {template.template.length > 200 && '...'}
-                            </div>
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              <div className="flex items-center text-xs text-muted-foreground">
-                                <Clock className="h-3 w-3 mr-1" />
-                                Used {template.usageCount} times
-                              </div>
-                              {template.lastUsedAt && (
-                                <div className="flex items-center text-xs text-muted-foreground">
-                                  <Clock className="h-3 w-3 mr-1" />
-                                  Last used {new Date(template.lastUsedAt).toLocaleDateString()}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </CardContent>
-                        <CardFooter className="flex justify-between pt-2">
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handleEditTemplateClick(template)}
-                          >
-                            Edit
-                          </Button>
-                          <Button 
-                            variant="default" 
-                            size="sm"
-                            onClick={() => handleUseTemplateClick(template)}
-                          >
-                            Use Template
-                          </Button>
-                        </CardFooter>
-                      </Card>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center p-8 border rounded-lg">
-                    <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium">No negotiation templates yet</h3>
-                    <p className="text-muted-foreground text-center mt-1 mb-4">
-                      Create templates to quickly respond to offers with counter offers
-                    </p>
-                    <Button 
-                      onClick={() => handleNewTemplateClick('negotiation')}
-                      className="flex items-center gap-1"
-                    >
-                      <PlusCircle className="h-4 w-4" />
-                      <span>Create Your First Template</span>
-                    </Button>
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
+  // Loading skeleton for templates
+  const TemplateLoadingSkeleton = () => (
+    <div className="space-y-4">
+      <AnimatedSkeleton className="h-48 w-full" />
+      <AnimatedSkeleton className="h-48 w-full" />
+      <AnimatedSkeleton className="h-48 w-full" />
+    </div>
+  );
 
-        <Card>
-          <CardHeader>
-            <CardTitle>How Trading Templates Work</CardTitle>
-            <CardDescription>
-              Create custom templates for different trading scenarios
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="flex flex-col items-center text-center p-4 border rounded-lg">
-                <ShoppingCart className="h-10 w-10 text-green-500 mb-2" />
-                <h3 className="text-lg font-medium">Buy Requests</h3>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Send "Open to Buy" requests specifying commodity, quality, quantity, price, and delivery terms. 
-                  Set tolerance discounts for variations.
-                </p>
-              </div>
-              <div className="flex flex-col items-center text-center p-4 border rounded-lg">
-                <Tag className="h-10 w-10 text-blue-500 mb-2" />
-                <h3 className="text-lg font-medium">Sell Offers</h3>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Create "Offer for Sale" templates with commodity details, quality specs, 
-                  price, payment terms, and available quantities.
-                </p>
-              </div>
-              <div className="flex flex-col items-center text-center p-4 border rounded-lg">
-                <Users className="h-10 w-10 text-amber-500 mb-2" />
-                <h3 className="text-lg font-medium">Broadcast Messages</h3>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Send your buy requests or sell offers to multiple connections at once 
-                  to maximize your trading opportunities.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+  // Empty state component
+  const EmptyState = ({ templateType }: { templateType: string }) => (
+    <div className="flex flex-col items-center justify-center py-12">
+      <div className="text-center mb-6">
+        <h3 className="text-xl font-semibold mb-2">No templates found</h3>
+        <p className="text-muted-foreground">
+          {templateType === 'all' 
+            ? "You don't have any message templates yet." 
+            : `You don't have any ${templateType.replace('_', ' ')} templates yet.`}
+        </p>
       </div>
+      <Button onClick={() => handleCreateTemplate(templateType as any)}>
+        <Plus className="h-4 w-4 mr-2" />
+        Create New Template
+      </Button>
+    </div>
+  );
+
+  return (
+    <div className="container py-6 max-w-6xl">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Message Templates</h1>
+          <p className="text-muted-foreground mt-1">
+            Create and manage templates for trading communications
+          </p>
+        </div>
+        <div className="flex space-x-2 mt-4 md:mt-0">
+          <Button onClick={() => handleCreateTemplate('buy_request')} variant="outline">
+            <Plus className="h-4 w-4 mr-2" />
+            Buy Request
+          </Button>
+          <Button onClick={() => handleCreateTemplate('sell_offer')} variant="outline">
+            <Plus className="h-4 w-4 mr-2" />
+            Sell Offer
+          </Button>
+          <Button onClick={() => handleCreateTemplate('negotiation')} variant="outline">
+            <Plus className="h-4 w-4 mr-2" />
+            Negotiation
+          </Button>
+        </div>
+      </div>
+
+      <div className="mb-6">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search templates..."
+            className="pl-8"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="grid grid-cols-4 md:w-fit">
+          <TabsTrigger value="all">All Templates</TabsTrigger>
+          <TabsTrigger value="buy_request">Buy Requests</TabsTrigger>
+          <TabsTrigger value="sell_offer">Sell Offers</TabsTrigger>
+          <TabsTrigger value="negotiation">Negotiations</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="all" className="space-y-4">
+          {isLoadingAllTemplates ? (
+            <TemplateLoadingSkeleton />
+          ) : allTemplatesData && filterTemplates(allTemplatesData).length > 0 ? (
+            <div>
+              {filterTemplates(allTemplatesData).map((template: any) => (
+                <TemplateCard key={template.id} template={template} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState templateType="all" />
+          )}
+        </TabsContent>
+
+        <TabsContent value="buy_request" className="space-y-4">
+          {isLoadingBuyRequestTemplates ? (
+            <TemplateLoadingSkeleton />
+          ) : buyRequestTemplatesData && filterTemplates(buyRequestTemplatesData).length > 0 ? (
+            <div>
+              {filterTemplates(buyRequestTemplatesData).map((template: any) => (
+                <TemplateCard key={template.id} template={template} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState templateType="buy_request" />
+          )}
+        </TabsContent>
+
+        <TabsContent value="sell_offer" className="space-y-4">
+          {isLoadingSellOfferTemplates ? (
+            <TemplateLoadingSkeleton />
+          ) : sellOfferTemplatesData && filterTemplates(sellOfferTemplatesData).length > 0 ? (
+            <div>
+              {filterTemplates(sellOfferTemplatesData).map((template: any) => (
+                <TemplateCard key={template.id} template={template} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState templateType="sell_offer" />
+          )}
+        </TabsContent>
+
+        <TabsContent value="negotiation" className="space-y-4">
+          {isLoadingNegotiationTemplates ? (
+            <TemplateLoadingSkeleton />
+          ) : negotiationTemplatesData && filterTemplates(negotiationTemplatesData).length > 0 ? (
+            <div>
+              {filterTemplates(negotiationTemplatesData).map((template: any) => (
+                <TemplateCard key={template.id} template={template} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState templateType="negotiation" />
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* Template Form Dialog */}
       {isTemplateFormOpen && (
         <MessageTemplateForm
           isOpen={isTemplateFormOpen}
-          onClose={() => setIsTemplateFormOpen(false)}
+          onClose={() => {
+            setIsTemplateFormOpen(false);
+            setTemplateToEdit(null);
+          }}
           userId={userId}
+          templateType={templateToEdit?.templateType || selectedTemplateType}
           initialTemplate={templateToEdit}
-          onSave={templateToEdit ? updateTemplate : createTemplate}
+          onSave={handleSaveTemplate}
         />
       )}
 
       {/* Message Composer Dialog */}
-      {isComposerOpen && (
+      {isMessageComposerOpen && templateForMessage && (
         <TradeMessageComposer
-          isOpen={isComposerOpen}
-          onClose={() => setIsComposerOpen(false)}
+          isOpen={isMessageComposerOpen}
+          onClose={() => {
+            setIsMessageComposerOpen(false);
+            setTemplateForMessage(null);
+          }}
           userId={userId}
-          messageType={messageType}
-          onSend={handleSendMessage}
+          messageType={templateForMessage.templateType}
+          onSend={handleMessageSend}
         />
       )}
     </div>

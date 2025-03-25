@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
   Dialog,
   DialogContent,
@@ -10,15 +9,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -26,38 +21,41 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   MessageSquare, 
-  Send, 
   Users, 
-  Search, 
-  Package, 
-  FileText, Truck, 
-  Calendar, 
-  DollarSign, 
-  Clock, 
-  Edit, 
-  Save, 
-  Trash, 
-  AlertCircle,
-  UserPlus,
-  Broadcast
+  ShoppingCart, 
+  Tag, 
+  ArrowRight, 
+  Send,
+  WifiOff,
+  Radio,  // Using Radio instead of Broadcast which doesn't exist
+  Globe,
+  User
 } from 'lucide-react';
-
-import { templatedMessageFormSchema, MessageTemplate } from '@shared/schema';
-import { apiRequest } from '@/lib/queryClient';
-import { useToast } from '@/hooks/use-toast';
 import { MessageTemplateSelector } from './MessageTemplateSelector';
 import { MessageTemplateForm } from './MessageTemplateForm';
+import { apiRequest } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
 
 interface TradeMessageComposerProps {
   isOpen: boolean;
@@ -82,686 +80,682 @@ export function TradeMessageComposer({
   commodityId,
   listingId,
   messageType = 'buy_request',
-  onSend
+  onSend,
 }: TradeMessageComposerProps) {
-  const [tab, setTab] = useState<string>('select');
-  const [step, setStep] = useState<string>('template');
-  const [selectedTemplate, setSelectedTemplate] = useState<MessageTemplate | null>(null);
-  const [isTemplateFormOpen, setIsTemplateFormOpen] = useState<boolean>(false);
-  const [templateToEdit, setTemplateToEdit] = useState<MessageTemplate | null>(null);
-  const [recipients, setRecipients] = useState<any[]>([]);
-  const [availableCommodities, setAvailableCommodities] = useState<any[]>([]);
-  const [availableCircles, setAvailableCircles] = useState<any[]>([]);
-  const [formattedMessage, setFormattedMessage] = useState<string>('');
-  const [useDefaultValues, setUseDefaultValues] = useState<boolean>(true);
+  const [activeTab, setActiveTab] = useState('compose');
+  const [templateId, setTemplateId] = useState<number | null>(null);
+  const [templateContent, setTemplateContent] = useState('');
+  const [broadcast, setBroadcast] = useState(false);
+  const [values, setValues] = useState<Record<string, any>>({});
+  const [isTemplateFormOpen, setIsTemplateFormOpen] = useState(false);
+  const [templateToEdit, setTemplateToEdit] = useState<any>(null);
+  const [selectedRecipients, setSelectedRecipients] = useState<number[]>([]);
+  const [selectedCircle, setSelectedCircle] = useState<number | null>(null);
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
-  // Load recipients (connects, circles)
-  useEffect(() => {
-    const fetchRecipients = async () => {
-      try {
-        // Get connections
-        const connectionsResponse = await apiRequest('/api/connections');
-        
-        // Get available circles
-        const circlesResponse = await apiRequest('/api/user-circles');
-        
-        // Combine into a recipients list
-        const allRecipients = [
-          ...(connectionsResponse.connections || []).map((connection: any) => ({
-            id: connection.id,
-            userId: connection.receiverId === userId ? connection.requesterId : connection.receiverId,
-            name: connection.receiver?.name || connection.requester?.name,
-            avatar: connection.receiver?.avatar || connection.requester?.avatar,
-            type: 'user'
-          })),
-          ...(circlesResponse.circles || []).map((circle: any) => ({
-            id: circle.id,
-            circleId: circle.circleId,
-            name: circle.circle?.name,
-            memberCount: circle.circle?.memberCount || 0,
-            type: 'circle'
-          }))
-        ];
-        
-        setRecipients(allRecipients);
-      } catch (error) {
-        console.error('Error fetching recipients', error);
-      }
-    };
-    
-    fetchRecipients();
-  }, [userId]);
+  // Get connections
+  const { data: connectionsData, isLoading: loadingConnections } = useQuery({
+    queryKey: ['/api/connections'],
+    queryFn: async () => {
+      const res = await apiRequest('/api/connections');
+      return res.connections || [];
+    },
+    enabled: isOpen,
+  });
 
-  // Load commodities and circles
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Get commodities
-        const commoditiesResponse = await apiRequest('/api/commodities');
-        setAvailableCommodities(commoditiesResponse.commodities || []);
-        
-        // Get circles
-        const circlesResponse = await apiRequest('/api/circles');
-        setAvailableCircles(circlesResponse.circles || []);
-      } catch (error) {
-        console.error('Error fetching data', error);
-      }
-    };
-    
-    fetchData();
-  }, []);
+  // Get circles
+  const { data: circlesData, isLoading: loadingCircles } = useQuery({
+    queryKey: ['/api/circles'],
+    queryFn: async () => {
+      const res = await apiRequest('/api/circles');
+      return res.circles || [];
+    },
+    enabled: isOpen,
+  });
 
-  // Form for the message values
-  const form = useForm({
-    resolver: zodResolver(templatedMessageFormSchema),
+  // Get commodities
+  const { data: commoditiesData, isLoading: loadingCommodities } = useQuery({
+    queryKey: ['/api/commodities'],
+    queryFn: async () => {
+      const res = await apiRequest('/api/commodities');
+      return res.commodities || [];
+    },
+    enabled: isOpen && !commodityId,
+  });
+
+  // Get circles by commodity
+  const { data: commodityCirclesData, isLoading: loadingCommodityCircles } = useQuery({
+    queryKey: ['/api/circles/by-commodity', commodityId],
+    queryFn: async () => {
+      const res = await apiRequest(`/api/circles/by-commodity/${commodityId}`);
+      return res.circles || [];
+    },
+    enabled: isOpen && !!commodityId,
+  });
+
+  // Form for composing message
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm({
     defaultValues: {
-      templateId: 0,
-      chatId: chatId || null,
-      content: '',
-      messageType: 'template',
       templateType: messageType,
-      recipientId: recipientId || null,
-      recipientType: recipientType,
-      commodityId: commodityId || null,
+      templateId: '',
+      content: '',
+      chatId,
+      recipientId,
+      recipientType,
+      commodityId,
+      listingId,
       circleId: null,
-      listingId: listingId || null,
-      broadcast: recipientType === 'broadcast',
-      values: {}
+      broadcast: false,
+      values: {},
+      messageType
     }
   });
 
-  // Update form values when template changes
-  useEffect(() => {
-    if (selectedTemplate) {
-      form.setValue('templateId', selectedTemplate.id);
-      form.setValue('templateType', selectedTemplate.templateType as any);
-      form.setValue('content', selectedTemplate.template);
-      
-      if (useDefaultValues && selectedTemplate.defaultValues) {
-        form.setValue('values', selectedTemplate.defaultValues);
-        updateFormattedMessage(selectedTemplate.template, selectedTemplate.defaultValues);
-      } else {
-        // Clear values if not using defaults
-        const emptyValues = {};
-        const templateText = selectedTemplate.template;
-        const placeholderMatches = templateText.match(/\{([^}]+)\}/g) || [];
-        
-        placeholderMatches.forEach(match => {
-          const key = match.substring(1, match.length - 1);
-          // @ts-ignore
-          emptyValues[key] = '';
-        });
-        
-        form.setValue('values', emptyValues);
-        updateFormattedMessage(selectedTemplate.template, emptyValues);
-      }
-    }
-  }, [selectedTemplate, useDefaultValues, form]);
-
-  // Format the message with the current values
-  const updateFormattedMessage = (template: string, values: any) => {
-    let result = template;
+  // Set values from template
+  const processTemplate = (template: string, values: any) => {
+    let processed = template;
     
-    Object.keys(values || {}).forEach(key => {
-      const placeholder = `{${key}}`;
-      const value = values[key] !== undefined && values[key] !== null ? values[key] : placeholder;
-      
-      // If the value is an object (like qualitySpecs), we'll use the formatted version if available
-      const formattedKey = `${key}Formatted`;
-      if (typeof value === 'object' && values[formattedKey]) {
-        result = result.replace(new RegExp(placeholder, 'g'), values[formattedKey]);
-      } else {
-        result = result.replace(new RegExp(placeholder, 'g'), String(value));
-      }
+    // Replace variables with values
+    Object.keys(values).forEach(key => {
+      const regex = new RegExp(`{${key}}`, 'g');
+      processed = processed.replace(regex, values[key] || `{${key}}`);
     });
     
-    setFormattedMessage(result);
+    return processed;
   };
 
-  // Handle value changes to update formatted message
-  useEffect(() => {
-    const subscription = form.watch((value, { name, type }) => {
-      if (name?.startsWith('values.') && selectedTemplate) {
-        updateFormattedMessage(selectedTemplate.template, value.values);
-      }
-    });
+  // Handle template selection
+  const handleTemplateSelect = (template: any) => {
+    setTemplateId(template.id);
+    setTemplateContent(template.template);
+    setValues(template.defaultValues || {});
     
-    return () => subscription.unsubscribe();
-  }, [form.watch, selectedTemplate]);
-
-  // Create a new template
-  const createTemplate = (template: any) => {
-    createTemplateMutation.mutate(template);
+    setValue('templateId', template.id);
+    setValue('templateType', template.templateType);
+    setValue('content', processTemplate(template.template, template.defaultValues || {}));
+    setValue('values', template.defaultValues || {});
   };
 
-  // Update an existing template
-  const updateTemplate = (template: any) => {
-    updateTemplateMutation.mutate(template);
-  };
-
-  // Delete a template
-  const deleteTemplate = (templateId: number) => {
-    deleteTemplateMutation.mutate(templateId);
-  };
-
-  // Handle template form open/close
-  const handleCreateNew = () => {
+  // Handle creating new template
+  const handleCreateNewTemplate = () => {
     setTemplateToEdit(null);
     setIsTemplateFormOpen(true);
   };
 
-  const handleEditTemplate = (template: MessageTemplate) => {
+  // Handle editing template
+  const handleEditTemplate = (template: any) => {
     setTemplateToEdit(template);
     setIsTemplateFormOpen(true);
   };
 
-  // Create template mutation
-  const createTemplateMutation = useMutation({
-    mutationFn: async (template: any) => {
-      const data = await apiRequest('/api/message-templates', {
+  // Handle saving template
+  const handleSaveTemplate = async (template: any) => {
+    try {
+      // If editing existing template
+      if (template.id) {
+        const response = await apiRequest(`/api/message-templates/${template.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(template),
+        });
+        
+        toast({
+          title: 'Template updated',
+          description: 'Your template has been updated successfully',
+        });
+        
+        // Update the current template if it's the one being used
+        if (templateId === template.id) {
+          handleTemplateSelect(response.template);
+        }
+      } 
+      // If creating new template
+      else {
+        const response = await apiRequest('/api/message-templates', {
+          method: 'POST',
+          body: JSON.stringify(template),
+        });
+        
+        toast({
+          title: 'Template created',
+          description: 'Your new template has been created successfully',
+        });
+        
+        // Select the newly created template
+        handleTemplateSelect(response.template);
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'There was an error saving your template',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Handle deleting template
+  const handleDeleteTemplate = async (id: number) => {
+    try {
+      await apiRequest(`/api/message-templates/${id}`, {
+        method: 'DELETE',
+      });
+      
+      toast({
+        title: 'Template deleted',
+        description: 'The template has been deleted',
+      });
+      
+      // Clear current template if it was the one deleted
+      if (templateId === id) {
+        setTemplateId(null);
+        setTemplateContent('');
+        setValues({});
+        setValue('templateId', '');
+        setValue('content', '');
+        setValue('values', {});
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'There was an error deleting the template',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Handle increment template usage
+  const incrementTemplateUsage = async (id: number) => {
+    if (!id) return;
+    
+    try {
+      await apiRequest(`/api/message-templates/${id}/increment-usage`, {
         method: 'POST',
-        body: JSON.stringify(template)
       });
-      return data;
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/message-templates/user', userId] });
-      toast({
-        title: "Template created",
-        description: "Your new template has been created successfully.",
-      });
-      setSelectedTemplate(data.template);
-    },
-    onError: (error) => {
-      toast({
-        title: "Error creating template",
-        description: "There was an error creating your template. Please try again.",
-        variant: "destructive",
-      });
+    } catch (error) {
+      console.error('Error incrementing template usage:', error);
     }
-  });
+  };
 
-  // Update template mutation
-  const updateTemplateMutation = useMutation({
-    mutationFn: async (template: any) => {
-      const data = await apiRequest(`/api/message-templates/${template.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify(template)
-      });
-      return data;
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/message-templates/user', userId] });
-      toast({
-        title: "Template updated",
-        description: "Your template has been updated successfully.",
-      });
-      if (selectedTemplate?.id === data.template.id) {
-        setSelectedTemplate(data.template);
-      }
-    },
-    onError: (error) => {
-      toast({
-        title: "Error updating template",
-        description: "There was an error updating your template. Please try again.",
-        variant: "destructive",
-      });
-    }
-  });
-
-  // Delete template mutation
-  const deleteTemplateMutation = useMutation({
-    mutationFn: async (templateId: number) => {
-      const data = await apiRequest(`/api/message-templates/${templateId}`, {
-        method: 'DELETE'
-      });
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/message-templates/user', userId] });
-      toast({
-        title: "Template deleted",
-        description: "Your template has been deleted successfully.",
-      });
-      if (selectedTemplate?.id === templateToEdit?.id) {
-        setSelectedTemplate(null);
-      }
-    },
-    onError: (error) => {
-      toast({
-        title: "Error deleting template",
-        description: "There was an error deleting your template. Please try again.",
-        variant: "destructive",
-      });
-    }
-  });
-
-  // Send message mutation
-  const sendMessageMutation = useMutation({
-    mutationFn: async (message: any) => {
-      const endpoint = message.recipientType === 'user' 
-        ? '/api/messages' 
-        : message.recipientType === 'broadcast'
-          ? '/api/messages/broadcast'
-          : '/api/messages/group';
-          
-      const data = await apiRequest(endpoint, {
-        method: 'POST',
-        body: JSON.stringify({
-          ...message,
-          content: formattedMessage
-        })
-      });
-      return data;
-    },
-    onSuccess: (data) => {
-      // Invalidate queries based on recipient type
-      if (chatId) {
-        queryClient.invalidateQueries({ queryKey: ['/api/chats', chatId, 'messages'] });
-      }
-      queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
-      
-      // If a template was used, increment its usage count
-      if (selectedTemplate) {
-        incrementTemplateUsageMutation.mutate(selectedTemplate.id);
-      }
-      
-      toast({
-        title: "Message sent",
-        description: "Your trade message has been sent successfully.",
-      });
-      
-      // Call the onSend callback with the message data
-      onSend(data.message);
-      
-      // Close the composer
-      onClose();
-    },
-    onError: (error) => {
-      toast({
-        title: "Error sending message",
-        description: "There was an error sending your message. Please try again.",
-        variant: "destructive",
-      });
-    }
-  });
-
-  // Increment template usage count
-  const incrementTemplateUsageMutation = useMutation({
-    mutationFn: async (templateId: number) => {
-      const data = await apiRequest(`/api/message-templates/${templateId}/increment-usage`, {
-        method: 'POST'
-      });
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/message-templates/user', userId] });
-    }
-  });
+  // Update a value
+  const updateValue = (key: string, value: any) => {
+    const newValues = { ...values, [key]: value };
+    setValues(newValues);
+    setValue('values', newValues);
+    setValue('content', processTemplate(templateContent, newValues));
+  };
 
   // Handle form submission
-  const onSubmit = (data: any) => {
-    // Add formatted message to the data
-    data.content = formattedMessage;
-    
-    // Convert values for proper JSON serialization
-    Object.keys(data.values).forEach(key => {
-      if (typeof data.values[key] === 'object' && data.values[key] !== null) {
-        // For objects like qualitySpecs and discounts, ensure they're properly formatted
-        if (!data.values[`${key}Formatted`]) {
-          data.values[`${key}Formatted`] = Object.entries(data.values[key])
-            .map(([k, v]) => `- ${k}: ${v}`)
-            .join('\n');
-        }
+  const onSubmit = async (data: any) => {
+    try {
+      if (templateId) {
+        incrementTemplateUsage(templateId);
       }
-    });
+      
+      // If broadcast is enabled, send to multiple recipients
+      if (broadcast) {
+        const response = await apiRequest('/api/messages/broadcast', {
+          method: 'POST',
+          body: JSON.stringify({
+            content: data.content,
+            type: data.templateType,
+            templateId: data.templateId,
+            commodityId: data.commodityId,
+            circleId: data.circleId,
+            listingId: data.listingId
+          }),
+        });
+        
+        toast({
+          title: 'Broadcast sent',
+          description: `Message sent to ${response.totalSent} connections`,
+        });
+        
+        onSend({
+          ...data,
+          broadcast: true,
+          recipientCount: response.totalSent,
+        });
+      } 
+      // Otherwise send to a single recipient
+      else {
+        const response = await apiRequest('/api/messages', {
+          method: 'POST',
+          body: JSON.stringify({
+            chatId: data.chatId,
+            recipientId: data.recipientId,
+            content: data.content,
+            type: data.templateType,
+            templateId: data.templateId,
+            commodityId: data.commodityId,
+            circleId: data.circleId,
+            listingId: data.listingId
+          }),
+        });
+        
+        onSend({
+          ...data,
+          messageId: response.message.id,
+        });
+      }
+      
+      onClose();
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'There was an error sending your message',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Handle broadcast toggle
+  const handleBroadcastToggle = () => {
+    setBroadcast(!broadcast);
+    setValue('broadcast', !broadcast);
+  };
+
+  // Reset broadcast recipients when broadcast is toggled off
+  useEffect(() => {
+    if (!broadcast) {
+      setSelectedRecipients([]);
+      setSelectedCircle(null);
+    }
+  }, [broadcast]);
+
+  // Toggle recipient selection
+  const toggleRecipient = (id: number) => {
+    if (selectedRecipients.includes(id)) {
+      setSelectedRecipients(selectedRecipients.filter(r => r !== id));
+    } else {
+      setSelectedRecipients([...selectedRecipients, id]);
+    }
+  };
+
+  // Toggle all recipients
+  const toggleAllRecipients = () => {
+    if (selectedRecipients.length === connectionsData?.length) {
+      setSelectedRecipients([]);
+    } else {
+      setSelectedRecipients(connectionsData?.map((c: any) => c.id) || []);
+    }
+  };
+
+  // Calculate the list of recipients for display purposes
+  const getSelectedRecipientsCount = () => {
+    if (!broadcast) return recipientId ? 1 : 0;
+    return selectedRecipients.length;
+  };
+
+  // Get the recipient's name
+  const getRecipientName = () => {
+    if (!recipientId || !connectionsData) return 'Unknown';
     
-    // Send the message
-    sendMessageMutation.mutate(data);
+    const connection = connectionsData.find((c: any) => 
+      c.requesterId === recipientId || c.receiverId === recipientId
+    );
+    
+    if (!connection) return 'Unknown';
+    
+    return connection.requesterId === recipientId 
+      ? connection.requesterName 
+      : connection.receiverName;
+  };
+
+  // Format the broadcast status
+  const getBroadcastStatus = () => {
+    if (!broadcast) return null;
+    
+    if (selectedCircle) {
+      const circle = circlesData?.find((c: any) => c.id === selectedCircle);
+      return `Broadcasting to users in ${circle?.name || 'selected circle'}`;
+    }
+    
+    return `Broadcasting to ${selectedRecipients.length} selected connections`;
+  };
+
+  // Handle message preview
+  const messagePreview = watch('content');
+  
+  // Extract variable names from template
+  const extractVariables = (template: string) => {
+    const regex = /{([^}]+)}/g;
+    const matches = [];
+    let match;
+    
+    while ((match = regex.exec(template)) !== null) {
+      matches.push(match[1]);
+    }
+    
+    return [...new Set(matches)]; // Return unique variables
+  };
+  
+  // Get variables from template
+  const templateVariables = extractVariables(templateContent);
+
+  // Format the field label
+  const formatFieldLabel = (key: string) => {
+    return key
+      .split(/(?=[A-Z])/)
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
+  // Render variable form inputs
+  const renderVariableInputs = () => {
+    if (!templateVariables.length) return null;
+    
+    return (
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium">Fill in the details</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {templateVariables.map(variable => {
+            const fieldKey = `values.${variable}`;
+            const formattedFieldKey = `values.${variable}Formatted`;
+            
+            return (
+              <div key={variable} className="space-y-2">
+                <Label htmlFor={fieldKey}>{formatFieldLabel(variable)}</Label>
+                <Input
+                  id={fieldKey}
+                  value={values[variable] || ''}
+                  onChange={(e) => updateValue(variable, e.target.value)}
+                  placeholder={`Enter ${formatFieldLabel(variable).toLowerCase()}`}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
   };
 
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {messageType === 'buy_request' 
-                ? 'Create Buy Request' 
-                : messageType === 'sell_offer' 
-                  ? 'Create Sell Offer' 
-                  : 'Create Negotiation'}
+              {messageType === 'buy_request' && 'Create Buy Request Message'}
+              {messageType === 'sell_offer' && 'Create Sell Offer Message'}
+              {messageType === 'negotiation' && 'Create Negotiation Message'}
             </DialogTitle>
             <DialogDescription>
-              Create a templated message to broadcast your trade requirements or offers to potential partners.
+              Create a message using templates to communicate with your trading partners
             </DialogDescription>
           </DialogHeader>
-          
-          <Tabs value={tab} onValueChange={setTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="select">Select Template</TabsTrigger>
-              <TabsTrigger value="customize">Customize & Send</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="select" className="space-y-4 mt-2">
-              <MessageTemplateSelector
-                userId={userId}
-                onSelect={(template) => {
-                  setSelectedTemplate(template);
-                  setTab('customize');
-                }}
-                onCreateNew={handleCreateNew}
-                onEdit={handleEditTemplate}
-                onDelete={deleteTemplate}
-              />
-            </TabsContent>
-            
-            <TabsContent value="customize" className="space-y-4 mt-2">
-              {selectedTemplate ? (
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                    <div className="grid grid-cols-3 gap-6">
-                      <div className="col-span-2">
-                        <div className="space-y-4">
-                          <div className="flex items-center justify-between">
-                            <h3 className="text-lg font-medium">
-                              {selectedTemplate.name}
-                            </h3>
-                            <Badge 
-                              className={
-                                selectedTemplate.templateType === 'buy_request'
-                                  ? 'bg-green-100 text-green-800'
-                                  : selectedTemplate.templateType === 'sell_offer'
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : 'bg-amber-100 text-amber-800'
-                              }
-                            >
-                              {selectedTemplate.templateType === 'buy_request'
-                                ? 'Open to Buy'
-                                : selectedTemplate.templateType === 'sell_offer'
-                                ? 'Offer for Sale'
-                                : 'Negotiation'}
-                            </Badge>
-                          </div>
-                          
-                          <Separator />
-                          
-                          <div className="flex items-center space-x-2">
-                            <Switch
-                              checked={useDefaultValues}
-                              onCheckedChange={setUseDefaultValues}
-                              id="use-defaults"
-                            />
-                            <label htmlFor="use-defaults" className="text-sm font-medium">
-                              Use default values
-                            </label>
-                          </div>
-                          
-                          <div className="p-4 border rounded-md bg-muted/20">
-                            <h4 className="font-medium mb-3">Template Values</h4>
-                            <div className="grid grid-cols-2 gap-4">
-                              {selectedTemplate && form.getValues('values') && Object.keys(form.getValues('values')).map((key) => {
-                                // Skip formatted fields that are derived
-                                if (key.endsWith('Formatted')) return null;
-                                
-                                // Skip complex objects that have formatted versions
-                                if (
-                                  typeof form.getValues(`values.${key}`) === 'object' && 
-                                  form.getValues(`values.${key}Formatted`) !== undefined
-                                ) return null;
+
+          <form onSubmit={handleSubmit(onSubmit)}>
+            <Tabs defaultValue={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsTrigger value="compose">Compose Message</TabsTrigger>
+                <TabsTrigger value="preview">Preview</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="compose" className="space-y-4">
+                <div className="space-y-4">
+                  {/* Template selection */}
+                  <div className="space-y-2">
+                    <Label>Select a Template</Label>
+                    <MessageTemplateSelector
+                      userId={userId}
+                      onSelect={handleTemplateSelect}
+                      onCreateNew={handleCreateNewTemplate}
+                      onEdit={handleEditTemplate}
+                      onDelete={handleDeleteTemplate}
+                    />
+                  </div>
+
+                  {/* Template variables */}
+                  {templateContent && renderVariableInputs()}
+
+                  {/* Commodity Selection */}
+                  {!commodityId && (
+                    <div className="space-y-2">
+                      <Label htmlFor="commodityId">Commodity</Label>
+                      <Select
+                        value={watch('commodityId')?.toString() || ''}
+                        onValueChange={(value) => setValue('commodityId', parseInt(value))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a commodity" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {loadingCommodities ? (
+                            <SelectItem value="loading" disabled>Loading commodities...</SelectItem>
+                          ) : (
+                            commoditiesData?.map((commodity: any) => (
+                              <SelectItem key={commodity.id} value={commodity.id.toString()}>
+                                {commodity.name}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {/* Circle Selection */}
+                  <div className="space-y-2">
+                    <Label htmlFor="circleId">Trading Circle</Label>
+                    <Select
+                      value={watch('circleId')?.toString() || ''}
+                      onValueChange={(value) => {
+                        setValue('circleId', parseInt(value));
+                        if (broadcast) setSelectedCircle(parseInt(value));
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a trading circle" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {loadingCommodityCircles ? (
+                          <SelectItem value="loading" disabled>Loading circles...</SelectItem>
+                        ) : (
+                          commodityCirclesData?.map((circle: any) => (
+                            <SelectItem key={circle.id} value={circle.id.toString()}>
+                              {circle.name}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Broadcast Toggle */}
+                  {!recipientId && (
+                    <div className="flex items-center space-x-2 pt-2">
+                      <Switch
+                        id="broadcast"
+                        checked={broadcast}
+                        onCheckedChange={handleBroadcastToggle}
+                      />
+                      <Label htmlFor="broadcast">
+                        Broadcast to multiple connections
+                      </Label>
+                    </div>
+                  )}
+
+                  {/* Recipient Information */}
+                  <div className="pt-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm text-muted-foreground">
+                        {broadcast ? 'Broadcasting to:' : 'Sending to:'}
+                      </Label>
+                      <span className="text-sm font-medium">
+                        {getSelectedRecipientsCount()} {getSelectedRecipientsCount() === 1 ? 'recipient' : 'recipients'}
+                      </span>
+                    </div>
+                    {!broadcast && recipientId && (
+                      <div className="flex items-center mt-1 p-2 bg-muted rounded-md">
+                        <User className="h-4 w-4 mr-2" />
+                        <span>{getRecipientName()}</span>
+                      </div>
+                    )}
+                    {broadcast && getBroadcastStatus() && (
+                      <div className="flex items-center mt-1 p-2 bg-muted rounded-md">
+                        <BroadcastIcon className="h-4 w-4 mr-2" />
+                        <span>{getBroadcastStatus()}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Broadcast Recipient Selection */}
+                  {broadcast && !selectedCircle && (
+                    <div className="pt-2">
+                      <div className="flex items-center justify-between mb-2">
+                        <Label>Select Recipients</Label>
+                        <Button 
+                          type="button" 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={toggleAllRecipients}
+                        >
+                          {selectedRecipients.length === connectionsData?.length 
+                            ? 'Deselect All' 
+                            : 'Select All'}
+                        </Button>
+                      </div>
+                      <Card>
+                        <ScrollArea className="h-[200px]">
+                          <div className="p-4 space-y-2">
+                            {loadingConnections ? (
+                              <div className="text-center py-4">Loading connections...</div>
+                            ) : connectionsData?.length > 0 ? (
+                              connectionsData.map((connection: any) => {
+                                const connectionId = connection.id;
+                                const connectionName = 
+                                  connection.requesterId === userId 
+                                    ? connection.receiverName 
+                                    : connection.requesterName;
                                 
                                 return (
-                                  <FormField
-                                    key={key}
-                                    control={form.control}
-                                    name={`values.${key}`}
-                                    render={({ field }) => (
-                                      <FormItem>
-                                        <FormLabel>{key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')}</FormLabel>
-                                        <FormControl>
-                                          {key.includes('additional') || key.includes('terms') ? (
-                                            <Textarea 
-                                              {...field} 
-                                              value={String(field.value || '')}
-                                              className="h-20"
-                                            />
-                                          ) : (
-                                            <Input 
-                                              {...field} 
-                                              value={String(field.value || '')}
-                                              type={
-                                                key.includes('price') || key.includes('quantity') ? 'number' : 'text'
-                                              }
-                                            />
-                                          )}
-                                        </FormControl>
-                                      </FormItem>
-                                    )}
-                                  />
-                                );
-                              })}
-                              
-                              {/* Special handling for formatted multi-line fields */}
-                              {selectedTemplate && form.getValues('values') && Object.keys(form.getValues('values'))
-                                .filter(key => key.endsWith('Formatted'))
-                                .map((key) => (
-                                  <FormField
-                                    key={key}
-                                    control={form.control}
-                                    name={`values.${key}`}
-                                    render={({ field }) => (
-                                      <FormItem className="col-span-2">
-                                        <FormLabel>
-                                          {key
-                                            .replace('Formatted', '')
-                                            .charAt(0).toUpperCase() + 
-                                            key.replace('Formatted', '').slice(1)
-                                            .replace(/([A-Z])/g, ' $1')}
-                                        </FormLabel>
-                                        <FormControl>
-                                          <Textarea 
-                                            {...field} 
-                                            value={String(field.value || '')}
-                                            className="h-24"
-                                          />
-                                        </FormControl>
-                                      </FormItem>
-                                    )}
-                                  />
-                                ))
-                              }
-                            </div>
-                          </div>
-                          
-                          {/* Recipient selection if not in a chat */}
-                          {!chatId && (
-                            <div className="space-y-4">
-                              <h4 className="font-medium">Recipients</h4>
-                              
-                              <FormField
-                                control={form.control}
-                                name="recipientType"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Send to</FormLabel>
-                                    <Select
-                                      onValueChange={(value) => {
-                                        field.onChange(value);
-                                        form.setValue('broadcast', value === 'broadcast');
-                                      }}
-                                      defaultValue={field.value}
-                                    >
-                                      <FormControl>
-                                        <SelectTrigger>
-                                          <SelectValue placeholder="Select recipient type" />
-                                        </SelectTrigger>
-                                      </FormControl>
-                                      <SelectContent>
-                                        <SelectItem value="user">Individual User</SelectItem>
-                                        <SelectItem value="circle">Circle Members</SelectItem>
-                                        <SelectItem value="broadcast">Broadcast to All Connections</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                  </FormItem>
-                                )}
-                              />
-                              
-                              {form.watch('recipientType') === 'user' && (
-                                <FormField
-                                  control={form.control}
-                                  name="recipientId"
-                                  render={({ field }) => (
-                                    <FormItem>
-                                      <FormLabel>Select User</FormLabel>
-                                      <Select
-                                        onValueChange={(value) => field.onChange(parseInt(value))}
-                                        value={field.value?.toString() || ''}
-                                      >
-                                        <FormControl>
-                                          <SelectTrigger>
-                                            <SelectValue placeholder="Select a user" />
-                                          </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                          {recipients
-                                            .filter(r => r.type === 'user')
-                                            .map((recipient) => (
-                                              <SelectItem 
-                                                key={recipient.userId} 
-                                                value={recipient.userId.toString()}
-                                              >
-                                                {recipient.name}
-                                              </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                      </Select>
-                                    </FormItem>
-                                  )}
-                                />
-                              )}
-                              
-                              {form.watch('recipientType') === 'circle' && (
-                                <FormField
-                                  control={form.control}
-                                  name="circleId"
-                                  render={({ field }) => (
-                                    <FormItem>
-                                      <FormLabel>Select Circle</FormLabel>
-                                      <Select
-                                        onValueChange={(value) => field.onChange(parseInt(value))}
-                                        value={field.value?.toString() || ''}
-                                      >
-                                        <FormControl>
-                                          <SelectTrigger>
-                                            <SelectValue placeholder="Select a circle" />
-                                          </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                          {availableCircles.map((circle) => (
-                                            <SelectItem 
-                                              key={circle.id} 
-                                              value={circle.id.toString()}
-                                            >
-                                              {circle.name}
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                    </FormItem>
-                                  )}
-                                />
-                              )}
-                            </div>
-                          )}
-                          
-                          {/* Commodity selection if not provided */}
-                          {!commodityId && (
-                            <FormField
-                              control={form.control}
-                              name="commodityId"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Select Commodity</FormLabel>
-                                  <Select
-                                    onValueChange={(value) => field.onChange(parseInt(value))}
-                                    value={field.value?.toString() || ''}
+                                  <div 
+                                    key={connectionId}
+                                    className="flex items-center space-x-2 p-2 hover:bg-muted rounded-md cursor-pointer"
+                                    onClick={() => toggleRecipient(connectionId)}
                                   >
-                                    <FormControl>
-                                      <SelectTrigger>
-                                        <SelectValue placeholder="Select a commodity" />
-                                      </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                      {availableCommodities.map((commodity) => (
-                                        <SelectItem 
-                                          key={commodity.id} 
-                                          value={commodity.id.toString()}
-                                        >
-                                          {commodity.name}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </FormItem>
-                              )}
-                            />
-                          )}
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <h4 className="font-medium mb-2">Message Preview</h4>
-                        <div className="border rounded-md p-4 bg-muted/10 whitespace-pre-wrap min-h-[300px]">
-                          {formattedMessage}
-                        </div>
-                      </div>
+                                    <Checkbox 
+                                      checked={selectedRecipients.includes(connectionId)}
+                                      onCheckedChange={() => toggleRecipient(connectionId)}
+                                    />
+                                    <span>{connectionName}</span>
+                                  </div>
+                                );
+                              })
+                            ) : (
+                              <div className="text-center py-4">No connections found</div>
+                            )}
+                          </div>
+                        </ScrollArea>
+                      </Card>
                     </div>
-                    
-                    <DialogFooter>
-                      <Button type="button" variant="outline" onClick={() => setTab('select')}>
-                        Back to Templates
-                      </Button>
-                      <Button 
-                        type="submit" 
-                        disabled={!selectedTemplate || !formattedMessage || sendMessageMutation.isPending}
-                      >
-                        {sendMessageMutation.isPending ? 'Sending...' : 'Send Message'}
-                      </Button>
-                    </DialogFooter>
-                  </form>
-                </Form>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-8">
-                  <div className="text-center space-y-3">
-                    <AlertCircle className="mx-auto h-12 w-12 text-muted-foreground" />
-                    <h3 className="text-lg font-medium">No Template Selected</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Please select a template from the previous tab or create a new one.
-                    </p>
-                    <Button 
-                      variant="outline"
-                      onClick={() => setTab('select')}
-                    >
-                      Go Back to Template Selection
-                    </Button>
+                  )}
+
+                  {/* Message Content */}
+                  <div className="space-y-2 pt-2">
+                    <Label htmlFor="content">Message Content</Label>
+                    <Textarea
+                      {...register('content')}
+                      id="content"
+                      placeholder="Enter your message content or select a template"
+                      className="min-h-[150px]"
+                    />
+                    {errors.content && (
+                      <p className="text-sm text-destructive">{errors.content.message as string}</p>
+                    )}
                   </div>
                 </div>
-              )}
-            </TabsContent>
-          </Tabs>
+              </TabsContent>
+
+              <TabsContent value="preview" className="space-y-4">
+                <div className="border rounded-lg p-4 bg-card">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-medium">Message Preview</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {messageType === 'buy_request' && 'Buy Request'}
+                        {messageType === 'sell_offer' && 'Sell Offer'}
+                        {messageType === 'negotiation' && 'Negotiation'}
+                      </p>
+                    </div>
+                    {broadcast ? (
+                      <div className="flex items-center">
+                        <BroadcastIcon className="h-4 w-4 mr-1 text-blue-500" />
+                        <span className="text-sm text-blue-500">Broadcast</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center">
+                        <MessageSquare className="h-4 w-4 mr-1 text-green-500" />
+                        <span className="text-sm text-green-500">Direct Message</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="border-t pt-4">
+                    <div className="whitespace-pre-wrap">
+                      {messagePreview || "No content to preview"}
+                    </div>
+                  </div>
+                  
+                  <div className="border-t mt-4 pt-4">
+                    <div className="flex flex-col space-y-2">
+                      {watch('commodityId') && (
+                        <div className="flex items-center text-sm">
+                          <span className="font-medium mr-2">Commodity:</span>
+                          <span>
+                            {loadingCommodities 
+                              ? 'Loading...' 
+                              : commoditiesData?.find((c: any) => c.id === watch('commodityId'))?.name || 'Unknown'}
+                          </span>
+                        </div>
+                      )}
+                      
+                      {watch('circleId') && (
+                        <div className="flex items-center text-sm">
+                          <span className="font-medium mr-2">Circle:</span>
+                          <span>
+                            {loadingCommodityCircles 
+                              ? 'Loading...' 
+                              : commodityCirclesData?.find((c: any) => c.id === watch('circleId'))?.name || 'Unknown'}
+                          </span>
+                        </div>
+                      )}
+                      
+                      <div className="flex items-center text-sm">
+                        <span className="font-medium mr-2">Sending to:</span>
+                        <span>
+                          {broadcast 
+                            ? `${getSelectedRecipientsCount()} connections` 
+                            : getRecipientName()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+
+            <DialogFooter className="pt-4 space-x-2">
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={!watch('content')}>
+                <Send className="h-4 w-4 mr-2" />
+                {broadcast ? 'Broadcast Message' : 'Send Message'}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
-      
-      {/* Template Creation/Editing Form */}
+
+      {/* Template Form Dialog */}
       {isTemplateFormOpen && (
         <MessageTemplateForm
           isOpen={isTemplateFormOpen}
           onClose={() => setIsTemplateFormOpen(false)}
           userId={userId}
+          templateType={messageType}
           initialTemplate={templateToEdit}
-          onSave={templateToEdit ? updateTemplate : createTemplate}
+          onSave={handleSaveTemplate}
         />
       )}
     </>

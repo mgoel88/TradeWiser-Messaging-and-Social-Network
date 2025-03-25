@@ -39,6 +39,17 @@ import {
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 
+// Add message template router
+import { WebSocketServer } from 'ws';
+import { 
+  MessageType, 
+  setupWebsocketServer, 
+  notifyNewListing, 
+  notifyOfferReceived, 
+  notifyTradeUpdate,
+  simulatePriceUpdates 
+} from './notifications';
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up session storage
   const MemoryStoreSession = MemoryStore(session);

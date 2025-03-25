@@ -1,836 +1,724 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
-import { Switch } from '@/components/ui/switch';
-import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Star, ChevronDown, Tag, PlusCircle, Trash } from 'lucide-react';
-import { messageTemplateSchema, buyRequestTemplateSchema, sellOfferTemplateSchema, negotiationTemplateSchema } from '@shared/schema';
+import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 
-// This component is used to create and edit message templates
+// Create a validation schema
+const templateSchema = z.object({
+  name: z.string().min(1, 'Template name is required').max(100),
+  template: z.string().min(10, 'Template content must be at least 10 characters'),
+  templateType: z.enum(['buy_request', 'sell_offer', 'negotiation', 'custom']),
+  defaultValues: z.record(z.any()).optional(),
+  isDefault: z.boolean().optional(),
+  isFavorite: z.boolean().optional(),
+});
+
+interface MessageTemplateFormProps {
+  isOpen: boolean;
+  onClose: () => void;
+  userId?: number;
+  templateType?: 'buy_request' | 'sell_offer' | 'negotiation' | 'custom';
+  initialTemplate?: any;
+  onSave: (template: any) => void;
+}
+
 export function MessageTemplateForm({
   isOpen,
   onClose,
   userId,
-  initialTemplate = null,
+  templateType = 'custom',
+  initialTemplate,
   onSave,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  userId: number;
-  initialTemplate?: any;
-  onSave: (template: any) => void;
-}) {
-  const [templateType, setTemplateType] = useState(initialTemplate?.templateType || 'buy_request');
-  const [previewData, setPreviewData] = useState<any>({});
-  const [formattedTemplate, setFormattedTemplate] = useState('');
+}: MessageTemplateFormProps) {
+  const [activeTab, setActiveTab] = useState('content');
+  const [contentHelp, setContentHelp] = useState(false);
   const { toast } = useToast();
 
-  // Get the appropriate schema based on template type
-  const getSchemaByType = (type: string) => {
-    switch (type) {
-      case 'buy_request':
-        return buyRequestTemplateSchema;
-      case 'sell_offer':
-        return sellOfferTemplateSchema;
-      case 'negotiation':
-        return negotiationTemplateSchema;
-      default:
-        return messageTemplateSchema;
-    }
-  };
-
-  // Form setup
-  const form = useForm({
-    resolver: zodResolver(getSchemaByType(templateType)),
-    defaultValues: {
-      userId: userId,
-      name: initialTemplate?.name || '',
-      templateType: initialTemplate?.templateType || 'buy_request',
-      template: initialTemplate?.template || getDefaultTemplate(templateType),
-      isDefault: initialTemplate?.isDefault || false,
-      isFavorite: initialTemplate?.isFavorite || false,
-      defaultValues: initialTemplate?.defaultValues || getDefaultValues(templateType),
-    },
-  });
-
-  // Update form when template type changes
-  useEffect(() => {
-    if (!initialTemplate) {
-      form.setValue('templateType', templateType);
-      form.setValue('template', getDefaultTemplate(templateType));
-      form.setValue('defaultValues', getDefaultValues(templateType));
-    }
-  }, [templateType, form, initialTemplate]);
-
-  // Update formatted template preview
-  useEffect(() => {
-    const template = form.watch('template');
-    const defaultValues = form.watch('defaultValues');
-    const formatted = formatTemplate(template, defaultValues || getDefaultValues(templateType));
-    setFormattedTemplate(formatted);
-  }, [form.watch('template'), form.watch('defaultValues'), templateType]);
-
-  // Format the template with variable placeholders
-  const formatTemplate = (template: string, values: any) => {
-    let result = template;
-    Object.keys(values || {}).forEach(key => {
-      const placeholder = `{${key}}`;
-      const value = values[key] || placeholder;
-      result = result.replace(new RegExp(placeholder, 'g'), String(value));
-    });
-    return result;
-  };
-
-  // Get default template text based on template type
+  // Define default template content by type
   function getDefaultTemplate(type: string): string {
     switch (type) {
       case 'buy_request':
-        return `Looking to buy {commodityName} with the following details:
+        return `I'm looking to buy {commodity} with the following details:
 
 Quantity: {quantity} {unit}
-Price: ₹{pricePerUnit} per {unit}
+Price: Up to {price} per {unit}
 Quality: {quality}
-Delivery Terms: {deliveryTerms}
-Payment Terms: {paymentTerms}
+Delivery: {deliveryMethod}
 Location: {location}
-Valid Until: {validityPeriod}
+Payment terms: {paymentTerms}
 
-Additional Requirements:
-{additionalRequirements}
+Variance tolerance:
+- Quality: {qualityVarianceTolerance}
+- Quantity: {quantityVarianceTolerance}
+- Price adjustment for lower quality: {priceAdjustment}
 
-Please contact me if you can supply as per these specifications.`;
-      
+Please let me know if you can supply this commodity.`;
+
       case 'sell_offer':
-        return `Offering {commodityName} for sale with the following specifications:
+        return `I have {commodity} available for sale with the following specifications:
 
 Quantity: {quantity} {unit}
-Price: ₹{pricePerUnit} per {unit}
+Price: {price} per {unit}
 Quality: {quality}
-Quality Specifications:
-{qualitySpecsFormatted}
-
-Delivery Terms: {deliveryTerms}
-Payment Terms: {paymentTerms}
+Delivery options: {deliveryOptions}
+Available from: {availableFrom}
 Location: {location}
-Available: {availableFrom} to {availableTo}
+Payment terms: {paymentTerms}
 
-Discounts/Tolerance:
-{discountsFormatted}
+Please let me know if you're interested in purchasing.`;
 
-Samples Available: {samplesAvailable}
-Certification: {certification}
-
-Contact for immediate purchase.`;
-      
       case 'negotiation':
-        return `Regarding your inquiry/offer:
+        return `Regarding your {messageType} for {commodity}:
 
-I would like to counter with ₹{counterOffer} per unit.
-Proposed Quantity: {proposedQuantity}
-Proposed Delivery Date: {proposedDeliveryDate}
-Proposed Payment Terms: {proposedPaymentTerms}
+I can {action} at the following terms:
+- Quantity: {quantity} {unit}
+- Price: {price} per {unit}
+- Delivery: {deliveryMethod}
+- Payment: {paymentTerms}
 
-Additional Terms:
 {additionalTerms}
 
 Let me know if this works for you.`;
-      
+
       default:
         return '';
     }
   }
 
-  // Get default values based on template type
+  // Define default values for each template type
   function getDefaultValues(type: string): any {
     switch (type) {
       case 'buy_request':
         return {
-          commodityName: 'Wheat',
-          commodityId: null,
-          quantity: 100,
-          unit: 'quintal',
-          pricePerUnit: 2500,
-          quality: 'Premium Grade A',
-          deliveryTerms: 'Ex-warehouse, buyer arranges transport',
-          paymentTerms: '50% advance, 50% on delivery inspection',
-          location: 'Indore, MP',
-          validityPeriod: '1 week',
-          additionalRequirements: 'Moisture content < 12%, foreign matter < 0.5%'
+          commodity: '',
+          quantity: '',
+          unit: 'kg',
+          price: '',
+          quality: '',
+          deliveryMethod: 'Pickup',
+          location: '',
+          paymentTerms: 'Cash on delivery',
+          qualityVarianceTolerance: 'Up to 5% reduction in agreed parameters',
+          quantityVarianceTolerance: '±5%',
+          priceAdjustment: 'Proportional to quality reduction',
         };
-      
       case 'sell_offer':
         return {
-          commodityName: 'Rice (Basmati)',
-          commodityId: null,
-          quantity: 50,
-          unit: 'quintal',
-          pricePerUnit: 5000,
-          quality: 'Premium Export Quality',
-          qualitySpecs: {
-            'Length': '> 7mm',
-            'Broken': '< 5%',
-            'Moisture': '< 14%'
-          },
-          qualitySpecsFormatted: '- Length: > 7mm\n- Broken: < 5%\n- Moisture: < 14%',
-          deliveryTerms: 'FOB Delhi, packaging included',
-          paymentTerms: 'LC at sight or 70% advance, 30% before dispatch',
-          discounts: {
-            'Moisture 14-15%': '₹100 per quintal',
-            'Broken 5-7%': '₹150 per quintal'
-          },
-          discountsFormatted: '- Moisture 14-15%: ₹100 per quintal\n- Broken 5-7%: ₹150 per quintal',
-          location: 'Delhi',
-          availableFrom: 'Immediate',
-          availableTo: '15 days',
-          samplesAvailable: 'Yes',
-          certification: 'FSSAI, APEDA'
+          commodity: '',
+          quantity: '',
+          unit: 'kg',
+          price: '',
+          quality: '',
+          deliveryOptions: 'Pickup or delivery (extra charges apply)',
+          availableFrom: new Date().toISOString().split('T')[0],
+          location: '',
+          paymentTerms: 'Cash on delivery',
         };
-      
       case 'negotiation':
         return {
-          counterOffer: 4800,
-          proposedQuantity: 30,
-          proposedDeliveryDate: 'Within 7 days',
-          proposedPaymentTerms: '100% LC',
-          additionalTerms: 'Will need certificate of analysis before shipping'
+          messageType: 'offer',
+          commodity: '',
+          action: 'offer',
+          quantity: '',
+          unit: 'kg',
+          price: '',
+          deliveryMethod: 'Pickup',
+          paymentTerms: 'Cash on delivery',
+          additionalTerms: '',
         };
-      
       default:
         return {};
     }
   }
+  
+  // Initialize form with either initial template data or defaults
+  const { register, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm({
+    resolver: zodResolver(templateSchema),
+    defaultValues: initialTemplate 
+      ? { 
+          ...initialTemplate,
+          defaultValues: initialTemplate.defaultValues || getDefaultValues(initialTemplate.templateType),
+        } 
+      : {
+          name: '',
+          template: getDefaultTemplate(templateType),
+          templateType: templateType,
+          defaultValues: getDefaultValues(templateType),
+          isDefault: false,
+          isFavorite: false,
+        }
+  });
+
+  // Effect to update template when template type changes
+  const currentTemplateType = watch('templateType');
+  
+  useEffect(() => {
+    if (!initialTemplate && currentTemplateType !== templateType) {
+      setValue('template', getDefaultTemplate(currentTemplateType));
+      setValue('defaultValues', getDefaultValues(currentTemplateType));
+    }
+  }, [currentTemplateType, initialTemplate, setValue, templateType]);
 
   // Handle form submission
   const onSubmit = (data: any) => {
-    // Format any structured data for display
-    if (data.templateType === 'sell_offer') {
-      if (data.defaultValues?.qualitySpecs) {
-        data.defaultValues.qualitySpecsFormatted = Object.entries(data.defaultValues.qualitySpecs)
-          .map(([key, value]) => `- ${key}: ${value}`)
-          .join('\n');
-      }
-      
-      if (data.defaultValues?.discounts) {
-        data.defaultValues.discountsFormatted = Object.entries(data.defaultValues.discounts)
-          .map(([key, value]) => `- ${key}: ${value}`)
-          .join('\n');
-      }
+    if (!userId) {
+      toast({
+        title: "Error",
+        description: "User ID is required to create a template",
+        variant: "destructive",
+      });
+      return;
     }
-    
-    // Save the template
-    onSave({
+
+    const template = {
       ...data,
-      id: initialTemplate?.id,
-      usageCount: initialTemplate?.usageCount || 0,
-      lastUsedAt: initialTemplate?.lastUsedAt || null
-    });
-    
-    // Show toast notification
-    toast({
-      title: initialTemplate ? "Template updated" : "Template created",
-      description: `Your "${data.name}" template has been saved successfully.`,
-    });
-    
+      userId,
+      id: initialTemplate?.id
+    };
+
+    onSave(template);
     onClose();
+  };
+
+  // Component to edit default values
+  const TemplateDefaultValuesEditor = ({ type, defaultValues }: { type: string, defaultValues: any }) => {
+    switch (type) {
+      case 'buy_request':
+        return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="commodity">Commodity</Label>
+                <Input 
+                  id="commodity"
+                  placeholder="e.g., Wheat"
+                  {...register('defaultValues.commodity')}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-2">
+                  <Label htmlFor="quantity">Quantity</Label>
+                  <Input 
+                    id="quantity"
+                    type="text"
+                    placeholder="e.g., 1000"
+                    {...register('defaultValues.quantity')}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="unit">Unit</Label>
+                  <Select 
+                    defaultValue={defaultValues.unit}
+                    onValueChange={(value) => setValue('defaultValues.unit', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Unit" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="kg">Kilograms (kg)</SelectItem>
+                      <SelectItem value="quintal">Quintal</SelectItem>
+                      <SelectItem value="ton">Metric Ton</SelectItem>
+                      <SelectItem value="pieces">Pieces</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="price">Price (per unit)</Label>
+                <Input 
+                  id="price"
+                  placeholder="e.g., 1500"
+                  {...register('defaultValues.price')}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="quality">Quality</Label>
+                <Input 
+                  id="quality"
+                  placeholder="e.g., Grade A"
+                  {...register('defaultValues.quality')}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="deliveryMethod">Delivery Method</Label>
+                <Select 
+                  defaultValue={defaultValues.deliveryMethod}
+                  onValueChange={(value) => setValue('defaultValues.deliveryMethod', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Delivery Method" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Pickup">Pickup from seller</SelectItem>
+                    <SelectItem value="Delivery">Delivery by seller</SelectItem>
+                    <SelectItem value="Negotiable">Negotiable</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="location">Location</Label>
+                <Input 
+                  id="location"
+                  placeholder="e.g., Delhi APMC"
+                  {...register('defaultValues.location')}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="paymentTerms">Payment Terms</Label>
+              <Select 
+                defaultValue={defaultValues.paymentTerms}
+                onValueChange={(value) => setValue('defaultValues.paymentTerms', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Payment Terms" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Cash on delivery">Cash on delivery</SelectItem>
+                  <SelectItem value="Advance payment">Advance payment</SelectItem>
+                  <SelectItem value="Net 7">Net 7 days</SelectItem>
+                  <SelectItem value="Net 15">Net 15 days</SelectItem>
+                  <SelectItem value="Net 30">Net 30 days</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="border-t pt-4 mt-4">
+              <h4 className="text-sm font-medium mb-2">Variance Tolerance</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="qualityVarianceTolerance">Quality Variance</Label>
+                  <Input 
+                    id="qualityVarianceTolerance"
+                    placeholder="e.g., Up to 5% reduction"
+                    {...register('defaultValues.qualityVarianceTolerance')}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="quantityVarianceTolerance">Quantity Variance</Label>
+                  <Input 
+                    id="quantityVarianceTolerance"
+                    placeholder="e.g., ±5%"
+                    {...register('defaultValues.quantityVarianceTolerance')}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2 mt-4">
+                <Label htmlFor="priceAdjustment">Price Adjustment</Label>
+                <Input 
+                  id="priceAdjustment"
+                  placeholder="e.g., Proportional to quality reduction"
+                  {...register('defaultValues.priceAdjustment')}
+                />
+              </div>
+            </div>
+          </div>
+        );
+        
+      case 'sell_offer':
+        return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="commodity">Commodity</Label>
+                <Input 
+                  id="commodity"
+                  placeholder="e.g., Wheat"
+                  {...register('defaultValues.commodity')}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-2">
+                  <Label htmlFor="quantity">Quantity</Label>
+                  <Input 
+                    id="quantity"
+                    type="text"
+                    placeholder="e.g., 1000"
+                    {...register('defaultValues.quantity')}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="unit">Unit</Label>
+                  <Select 
+                    defaultValue={defaultValues.unit}
+                    onValueChange={(value) => setValue('defaultValues.unit', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Unit" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="kg">Kilograms (kg)</SelectItem>
+                      <SelectItem value="quintal">Quintal</SelectItem>
+                      <SelectItem value="ton">Metric Ton</SelectItem>
+                      <SelectItem value="pieces">Pieces</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="price">Price (per unit)</Label>
+                <Input 
+                  id="price"
+                  placeholder="e.g., 1500"
+                  {...register('defaultValues.price')}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="quality">Quality</Label>
+                <Input 
+                  id="quality"
+                  placeholder="e.g., Grade A"
+                  {...register('defaultValues.quality')}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="deliveryOptions">Delivery Options</Label>
+                <Input 
+                  id="deliveryOptions"
+                  placeholder="e.g., Pickup or delivery (charges apply)"
+                  {...register('defaultValues.deliveryOptions')}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="availableFrom">Available From</Label>
+                <Input 
+                  id="availableFrom"
+                  type="date"
+                  {...register('defaultValues.availableFrom')}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="location">Location</Label>
+                <Input 
+                  id="location"
+                  placeholder="e.g., Delhi APMC"
+                  {...register('defaultValues.location')}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="paymentTerms">Payment Terms</Label>
+                <Select 
+                  defaultValue={defaultValues.paymentTerms}
+                  onValueChange={(value) => setValue('defaultValues.paymentTerms', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Payment Terms" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Cash on delivery">Cash on delivery</SelectItem>
+                    <SelectItem value="Advance payment">Advance payment</SelectItem>
+                    <SelectItem value="Net 7">Net 7 days</SelectItem>
+                    <SelectItem value="Net 15">Net 15 days</SelectItem>
+                    <SelectItem value="Net 30">Net 30 days</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        );
+        
+      case 'negotiation':
+        return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="messageType">Original Message Type</Label>
+                <Select 
+                  defaultValue={defaultValues.messageType}
+                  onValueChange={(value) => setValue('defaultValues.messageType', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Message Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="offer">Sell Offer</SelectItem>
+                    <SelectItem value="request">Buy Request</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="action">Your Action</Label>
+                <Select 
+                  defaultValue={defaultValues.action}
+                  onValueChange={(value) => setValue('defaultValues.action', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Action" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="offer">Make Counter Offer</SelectItem>
+                    <SelectItem value="accept">Accept with Conditions</SelectItem>
+                    <SelectItem value="request information">Request More Information</SelectItem>
+                    <SelectItem value="decline">Decline with Feedback</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="commodity">Commodity</Label>
+              <Input 
+                id="commodity"
+                placeholder="e.g., Wheat"
+                {...register('defaultValues.commodity')}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="quantity">Quantity</Label>
+                <Input 
+                  id="quantity"
+                  placeholder="e.g., 1000"
+                  {...register('defaultValues.quantity')}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="unit">Unit</Label>
+                <Select 
+                  defaultValue={defaultValues.unit}
+                  onValueChange={(value) => setValue('defaultValues.unit', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Unit" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="kg">Kilograms (kg)</SelectItem>
+                    <SelectItem value="quintal">Quintal</SelectItem>
+                    <SelectItem value="ton">Metric Ton</SelectItem>
+                    <SelectItem value="pieces">Pieces</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="price">Price</Label>
+                <Input 
+                  id="price"
+                  placeholder="e.g., 1500"
+                  {...register('defaultValues.price')}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="deliveryMethod">Delivery Method</Label>
+                <Select 
+                  defaultValue={defaultValues.deliveryMethod}
+                  onValueChange={(value) => setValue('defaultValues.deliveryMethod', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Delivery Method" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Pickup">Pickup from seller</SelectItem>
+                    <SelectItem value="Delivery">Delivery by seller</SelectItem>
+                    <SelectItem value="Negotiable">Negotiable</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="paymentTerms">Payment Terms</Label>
+                <Select 
+                  defaultValue={defaultValues.paymentTerms}
+                  onValueChange={(value) => setValue('defaultValues.paymentTerms', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Payment Terms" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Cash on delivery">Cash on delivery</SelectItem>
+                    <SelectItem value="Advance payment">Advance payment</SelectItem>
+                    <SelectItem value="Net 7">Net 7 days</SelectItem>
+                    <SelectItem value="Net 15">Net 15 days</SelectItem>
+                    <SelectItem value="Net 30">Net 30 days</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="additionalTerms">Additional Terms & Conditions</Label>
+              <Textarea 
+                id="additionalTerms"
+                placeholder="Any additional terms or conditions for the negotiation..."
+                {...register('defaultValues.additionalTerms')}
+              />
+            </div>
+          </div>
+        );
+        
+      default:
+        return (
+          <div className="space-y-4">
+            <div className="p-4 bg-muted rounded-md">
+              <p className="text-sm text-muted-foreground">
+                For custom templates, you'll need to define your own variables in the template content.
+                Use the format {'{variableName}'} to define variables. For example: {'{commodity}'}, {'{price}'}, etc.
+              </p>
+            </div>
+          </div>
+        );
+    }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{initialTemplate ? 'Edit Template' : 'Create New Template'}</DialogTitle>
+          <DialogTitle>
+            {initialTemplate ? 'Edit Template' : 'Create New Template'}
+          </DialogTitle>
+          <DialogDescription>
+            Create reusable templates for trading messages
+          </DialogDescription>
         </DialogHeader>
-        
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <div className="grid grid-cols-3 gap-6">
-              <div className="col-span-2 space-y-6">
-                {/* Template basics */}
-                <div className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Template Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter template name" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  {!initialTemplate && (
-                    <FormField
-                      control={form.control}
-                      name="templateType"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Template Type</FormLabel>
-                          <Select
-                            onValueChange={(value) => {
-                              field.onChange(value);
-                              setTemplateType(value);
-                            }}
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select template type" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="buy_request">Open to Buy</SelectItem>
-                              <SelectItem value="sell_offer">Offer for Sale</SelectItem>
-                              <SelectItem value="negotiation">Negotiation</SelectItem>
-                              <SelectItem value="custom">Custom</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  )}
-                  
-                  <div className="flex gap-6">
-                    <FormField
-                      control={form.control}
-                      name="isFavorite"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                          <div className="space-y-0.5">
-                            <FormLabel>Favorite</FormLabel>
-                            <FormDescription>
-                              Mark this template as a favorite
-                            </FormDescription>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </div>
-                
-                <Separator />
-                
-                {/* Template content */}
-                <FormField
-                  control={form.control}
-                  name="template"
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="flex justify-between items-center">
-                        <FormLabel>Template Content</FormLabel>
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => field.onChange(getDefaultTemplate(templateType))}
-                        >
-                          Reset to Default
-                        </Button>
-                      </div>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Enter template content with {placeholders} for variables"
-                          className="min-h-[300px] font-mono"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Use {"{variableName}"} to create placeholders that will be replaced with actual values.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              
-              {/* Preview and default values panel */}
-              <div className="space-y-4">
-                <Tabs defaultValue="preview">
-                  <TabsList className="w-full grid grid-cols-2">
-                    <TabsTrigger value="preview">Preview</TabsTrigger>
-                    <TabsTrigger value="defaults">Default Values</TabsTrigger>
-                  </TabsList>
-                  
-                  <TabsContent value="preview" className="space-y-4">
-                    <div className="border rounded-md p-4 min-h-[300px] whitespace-pre-wrap bg-muted/30">
-                      {formattedTemplate}
-                    </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="defaults" className="space-y-4">
-                    <div className="border rounded-md p-4 max-h-[400px] overflow-y-auto">
-                      {/* Default values form based on template type */}
-                      {templateType === 'buy_request' && (
-                        <div className="space-y-3">
-                          <FormField
-                            control={form.control}
-                            name="defaultValues.commodityName"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Commodity</FormLabel>
-                                <FormControl>
-                                  <Input {...field} />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <div className="grid grid-cols-2 gap-3">
-                            <FormField
-                              control={form.control}
-                              name="defaultValues.quantity"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Quantity</FormLabel>
-                                  <FormControl>
-                                    <Input {...field} type="number" min="0" />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-                            
-                            <FormField
-                              control={form.control}
-                              name="defaultValues.unit"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Unit</FormLabel>
-                                  <FormControl>
-                                    <Input {...field} />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-                          </div>
-                          
-                          <FormField
-                            control={form.control}
-                            name="defaultValues.pricePerUnit"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Price per Unit (₹)</FormLabel>
-                                <FormControl>
-                                  <Input {...field} type="number" min="0" />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name="defaultValues.quality"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Quality</FormLabel>
-                                <FormControl>
-                                  <Input {...field} />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name="defaultValues.deliveryTerms"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Delivery Terms</FormLabel>
-                                <FormControl>
-                                  <Input {...field} />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name="defaultValues.paymentTerms"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Payment Terms</FormLabel>
-                                <FormControl>
-                                  <Input {...field} />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name="defaultValues.location"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Location</FormLabel>
-                                <FormControl>
-                                  <Input {...field} />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name="defaultValues.validityPeriod"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Validity Period</FormLabel>
-                                <FormControl>
-                                  <Input {...field} />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name="defaultValues.additionalRequirements"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Additional Requirements</FormLabel>
-                                <FormControl>
-                                  <Textarea {...field} rows={3} />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                      )}
-                      
-                      {templateType === 'sell_offer' && (
-                        <div className="space-y-3">
-                          <FormField
-                            control={form.control}
-                            name="defaultValues.commodityName"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Commodity</FormLabel>
-                                <FormControl>
-                                  <Input {...field} />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <div className="grid grid-cols-2 gap-3">
-                            <FormField
-                              control={form.control}
-                              name="defaultValues.quantity"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Quantity</FormLabel>
-                                  <FormControl>
-                                    <Input {...field} type="number" min="0" />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-                            
-                            <FormField
-                              control={form.control}
-                              name="defaultValues.unit"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Unit</FormLabel>
-                                  <FormControl>
-                                    <Input {...field} />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-                          </div>
-                          
-                          <FormField
-                            control={form.control}
-                            name="defaultValues.pricePerUnit"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Price per Unit (₹)</FormLabel>
-                                <FormControl>
-                                  <Input {...field} type="number" min="0" />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name="defaultValues.quality"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Quality</FormLabel>
-                                <FormControl>
-                                  <Input {...field} />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
 
-                          <FormField
-                            control={form.control}
-                            name="defaultValues.qualitySpecsFormatted"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Quality Specifications</FormLabel>
-                                <FormControl>
-                                  <Textarea 
-                                    {...field} 
-                                    rows={3} 
-                                    placeholder="Format as:&#10;- Parameter: Value&#10;- Parameter: Value"
-                                  />
-                                </FormControl>
-                                <FormDescription>
-                                  List each specification as "- Parameter: Value" on a new line
-                                </FormDescription>
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name="defaultValues.deliveryTerms"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Delivery Terms</FormLabel>
-                                <FormControl>
-                                  <Input {...field} />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name="defaultValues.paymentTerms"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Payment Terms</FormLabel>
-                                <FormControl>
-                                  <Input {...field} />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name="defaultValues.discountsFormatted"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Discounts/Tolerance</FormLabel>
-                                <FormControl>
-                                  <Textarea 
-                                    {...field} 
-                                    rows={3}
-                                    placeholder="Format as:&#10;- Condition: Discount&#10;- Condition: Discount"
-                                  />
-                                </FormControl>
-                                <FormDescription>
-                                  List each discount as "- Condition: Discount" on a new line
-                                </FormDescription>
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name="defaultValues.location"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Location</FormLabel>
-                                <FormControl>
-                                  <Input {...field} />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <div className="grid grid-cols-2 gap-3">
-                            <FormField
-                              control={form.control}
-                              name="defaultValues.availableFrom"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Available From</FormLabel>
-                                  <FormControl>
-                                    <Input {...field} />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-                            
-                            <FormField
-                              control={form.control}
-                              name="defaultValues.availableTo"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Available To</FormLabel>
-                                  <FormControl>
-                                    <Input {...field} />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-                          </div>
-                          
-                          <FormField
-                            control={form.control}
-                            name="defaultValues.samplesAvailable"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Samples Available</FormLabel>
-                                <Select
-                                  onValueChange={field.onChange}
-                                  defaultValue={field.value}
-                                >
-                                  <FormControl>
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Samples available?" />
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                    <SelectItem value="Yes">Yes</SelectItem>
-                                    <SelectItem value="No">No</SelectItem>
-                                    <SelectItem value="On Request">On Request</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name="defaultValues.certification"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Certification</FormLabel>
-                                <FormControl>
-                                  <Input {...field} />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                      )}
-                      
-                      {templateType === 'negotiation' && (
-                        <div className="space-y-3">
-                          <FormField
-                            control={form.control}
-                            name="defaultValues.counterOffer"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Counter Offer (₹)</FormLabel>
-                                <FormControl>
-                                  <Input {...field} type="number" min="0" />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name="defaultValues.proposedQuantity"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Proposed Quantity</FormLabel>
-                                <FormControl>
-                                  <Input {...field} />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name="defaultValues.proposedDeliveryDate"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Proposed Delivery Date</FormLabel>
-                                <FormControl>
-                                  <Input {...field} />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name="defaultValues.proposedPaymentTerms"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Proposed Payment Terms</FormLabel>
-                                <FormControl>
-                                  <Input {...field} />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name="defaultValues.additionalTerms"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Additional Terms</FormLabel>
-                                <FormControl>
-                                  <Textarea {...field} rows={3} />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                      )}
-                      
-                      {templateType === 'custom' && (
-                        <div className="flex items-center justify-center h-[200px]">
-                          <p className="text-sm text-muted-foreground">
-                            Custom templates can use any variables you define in your template.
-                          </p>
-                        </div>
-                      )}
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-1 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Template Name</Label>
+                <Input 
+                  id="name"
+                  {...register('name')}
+                  placeholder="E.g., Standard Wheat Buy Request"
+                />
+                {errors.name && (
+                  <p className="text-sm text-destructive">{errors.name.message as string}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="templateType">Template Type</Label>
+                <Select 
+                  defaultValue={initialTemplate?.templateType || templateType}
+                  onValueChange={(value) => setValue('templateType', value as any)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select template type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="buy_request">Buy Request</SelectItem>
+                    <SelectItem value="sell_offer">Sell Offer</SelectItem>
+                    <SelectItem value="negotiation">Negotiation</SelectItem>
+                    <SelectItem value="custom">Custom</SelectItem>
+                  </SelectContent>
+                </Select>
+                {errors.templateType && (
+                  <p className="text-sm text-destructive">{errors.templateType.message as string}</p>
+                )}
+              </div>
+
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="content">Template Content</TabsTrigger>
+                  <TabsTrigger value="defaultValues">Default Values</TabsTrigger>
+                </TabsList>
+                <TabsContent value="content" className="space-y-4 pt-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <Label htmlFor="template">Template Content</Label>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        type="button"
+                        onClick={() => setContentHelp(!contentHelp)}
+                      >
+                        Help
+                      </Button>
                     </div>
-                  </TabsContent>
-                </Tabs>
+                    {contentHelp && (
+                      <div className="p-3 bg-muted rounded-md mb-2">
+                        <p className="text-sm text-muted-foreground">
+                          Use curly braces to define variables in your template: {'{variableName}'}
+                          <br />
+                          These variables will be replaced with actual values when sending messages.
+                          <br />
+                          Example: "I want to buy {'{quantity}'} {'{unit}'} of {'{commodity}'}"
+                        </p>
+                      </div>
+                    )}
+                    <Textarea 
+                      id="template"
+                      {...register('template')}
+                      placeholder="Enter your template content here..."
+                      className="h-48 font-mono"
+                    />
+                    {errors.template && (
+                      <p className="text-sm text-destructive">{errors.template.message as string}</p>
+                    )}
+                  </div>
+                </TabsContent>
+                <TabsContent value="defaultValues" className="space-y-4 pt-4">
+                  <TemplateDefaultValuesEditor 
+                    type={watch('templateType')} 
+                    defaultValues={watch('defaultValues')} 
+                  />
+                </TabsContent>
+              </Tabs>
+
+              <div className="flex flex-col space-y-3">
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="isFavorite" 
+                    checked={watch('isFavorite')}
+                    onCheckedChange={(checked) => setValue('isFavorite', checked as boolean)}
+                  />
+                  <Label htmlFor="isFavorite">Mark as favorite</Label>
+                </div>
               </div>
             </div>
-            
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={onClose}>
-                Cancel
-              </Button>
-              <Button type="submit">
-                {initialTemplate ? 'Update Template' : 'Create Template'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+          </div>
+
+          <DialogFooter className="pt-4">
+            <Button variant="outline" type="button" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit">
+              {initialTemplate ? 'Update Template' : 'Create Template'}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );
