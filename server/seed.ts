@@ -542,94 +542,74 @@ async function main() {
   
   // Wheat listing by Priya
   const [wheatListing] = await db.insert(listings).values({
-    sellerId: priya.id,
+    userId: priya.id,
     commodityId: wheat.id,
     circleId: bikaner.id,
-    title: "Premium Quality Wheat - MP 3016 Variety",
-    description: "Fresh harvest, cleaned and sorted. Premium quality wheat with high protein content suitable for flour production. Direct from farmers in Bikaner region.",
+    listingType: "sell",
     quantity: 500,
-    availableQuantity: 500,
-    unit: "quintals",
     pricePerUnit: 2150,
     minQuantity: 50,
-    maxQuantity: 500,
-    listingType: "sell",
     quality: "Premium",
-    moisture: "11-12%",
+    description: "Fresh harvest, cleaned and sorted. Premium quality wheat with high protein content suitable for flour production. Direct from farmers in Bikaner region.",
     deliveryMethod: "Ex-Warehouse",
-    paymentTerms: "Advance Payment",
-    validUntil: new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000), // 15 days from now
+    availableFrom: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+    availableTo: new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000), // 15 days from now
+    images: ["https://images.unsplash.com/photo-1574323347407-f5e1c5a1ec21"],
     status: "active",
-    createdAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-    photos: ["https://images.unsplash.com/photo-1574323347407-f5e1c5a1ec21"]
+    createdAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000) // 2 days ago
   }).returning();
   
   // Chana listing by Sunita
   const [chanaListing] = await db.insert(listings).values({
-    sellerId: sunita.id,
+    userId: sunita.id,
     commodityId: chana.id,
     circleId: bikaner.id,
-    title: "Fresh Chickpeas (Chana) from Rajasthan",
-    description: "High quality chickpeas cultivated in Bikaner region. Clean, uniform size, and good taste. Suitable for dal production and flour milling.",
+    listingType: "sell",
     quantity: 100,
-    availableQuantity: 100,
-    unit: "quintals",
     pricePerUnit: 5250,
     minQuantity: 10,
-    maxQuantity: 100,
-    listingType: "sell",
     quality: "Good",
-    moisture: "9-10%",
+    description: "High quality chickpeas cultivated in Bikaner region. Clean, uniform size, and good taste. Suitable for dal production and flour milling.",
     deliveryMethod: "Ex-Warehouse",
-    paymentTerms: "50% Advance, 50% Against Delivery",
-    validUntil: new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000), // 10 days from now
+    availableFrom: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
+    availableTo: new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000), // 10 days from now
+    images: ["https://images.unsplash.com/photo-1515543904379-3d757abe3d54"],
     status: "active",
-    createdAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
-    photos: ["https://images.unsplash.com/photo-1515543904379-3d757abe3d54"]
+    createdAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000) // 3 days ago
   }).returning();
   
   // Buy request for Rice by Rajesh
   const [riceBuyListing] = await db.insert(listings).values({
-    sellerId: rajesh.id,
+    userId: rajesh.id,
     commodityId: rice.id,
     circleId: delhi.id,
-    title: "Looking to Buy Premium Quality Basmati Rice",
-    description: "Interested in procuring premium quality basmati rice for export. Need consistent quality with proper certification. Ready to offer competitive rates for the right product.",
+    listingType: "buy",
     quantity: 200,
-    availableQuantity: 200,
-    unit: "quintals",
     pricePerUnit: 3300,
     minQuantity: 50,
-    maxQuantity: 200,
-    listingType: "buy",
     quality: "Premium",
-    moisture: "12-13%",
+    description: "Interested in procuring premium quality basmati rice for export. Need consistent quality with proper certification. Ready to offer competitive rates for the right product.",
     deliveryMethod: "Delivered to Delhi Warehouse",
-    paymentTerms: "LC or Bank Transfer",
-    validUntil: new Date(now.getTime() + 20 * 24 * 60 * 60 * 1000), // 20 days from now
+    availableFrom: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
+    availableTo: new Date(now.getTime() + 20 * 24 * 60 * 60 * 1000), // 20 days from now
     status: "active",
     createdAt: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000) // 5 days ago
   }).returning();
   
   // Soybean buy request by Vijay
   const [soybeanBuyListing] = await db.insert(listings).values({
-    sellerId: vijay.id,
+    userId: vijay.id,
     commodityId: soybean.id,
     circleId: indore.id,
-    title: "Seeking High Protein Soybean for Processing",
-    description: "Our processing unit requires high protein soybean (min 40% protein content) for oil extraction and meal production. Looking for regular suppliers who can provide consistent quality.",
+    listingType: "buy",
     quantity: 1000,
-    availableQuantity: 1000,
-    unit: "MT",
     pricePerUnit: 4850,
     minQuantity: 100,
-    maxQuantity: 1000,
-    listingType: "buy",
     quality: "High Protein",
-    moisture: "10-12%",
+    description: "Our processing unit requires high protein soybean (min 40% protein content) for oil extraction and meal production. Looking for regular suppliers who can provide consistent quality.",
     deliveryMethod: "Delivered to Indore Processing Unit",
-    paymentTerms: "Weekly Settlement",
-    validUntil: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+    availableFrom: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
+    availableTo: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
     status: "active",
     createdAt: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) // 7 days ago
   }).returning();
