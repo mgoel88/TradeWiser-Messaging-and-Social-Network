@@ -11,6 +11,9 @@ import {
   kycRequests, KycRequest, InsertKycRequest
 } from "@shared/schema";
 
+import { db } from "./db";
+import { eq, and, or, desc, sql } from "drizzle-orm";
+
 // Storage interface for all data operations
 export interface IStorage {
   // User operations
@@ -96,426 +99,81 @@ export interface IStorage {
   getPendingKycRequests(): Promise<KycRequest[]>;
 }
 
-// In-memory storage implementation
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private circles: Map<number, Circle>;
-  private assets: Map<number, Asset>;
-  private commodities: Map<number, Commodity>;
-  private circleCommodities: Map<number, CircleCommodity>;
-  private userCircles: Map<number, UserCircle>;
-  private userCommodities: Map<number, UserCommodity>;
-  private connections: Map<number, Connection>;
-  private posts: Map<number, Post>;
-  private kycRequests: Map<number, KycRequest>;
+// Database storage implementation
+export class DatabaseStorage implements IStorage {
+  // No constructor needed for database-backed storage
 
-  private userId: number;
-  private circleId: number;
-  private assetId: number;
-  private commodityId: number;
-  private circleCommodityId: number;
-  private userCircleId: number;
-  private userCommodityId: number;
-  private connectionId: number;
-  private postId: number;
-  private kycRequestId: number;
-
-  constructor() {
-    this.users = new Map();
-    this.circles = new Map();
-    this.assets = new Map();
-    this.commodities = new Map();
-    this.circleCommodities = new Map();
-    this.userCircles = new Map();
-    this.userCommodities = new Map();
-    this.connections = new Map();
-    this.posts = new Map();
-    this.kycRequests = new Map();
-
-    this.userId = 1;
-    this.circleId = 1;
-    this.assetId = 1;
-    this.commodityId = 1;
-    this.circleCommodityId = 1;
-    this.userCircleId = 1;
-    this.userCommodityId = 1;
-    this.connectionId = 1;
-    this.postId = 1;
-    this.kycRequestId = 1;
-
-    // Initialize with sample data
-    this.initializeData();
-  }
-
-  // Initialize with sample data for testing
-  private initializeData() {
-    // Create commodities
-    const wheat = this.createCommodity({
-      name: "Wheat",
-      description: "Staple grain used for making flour",
-      category: "grain",
-      icon: "wheat-awn"
-    });
-
-    const chana = this.createCommodity({
-      name: "Chana (Chickpea)",
-      description: "Pulse crop used in various Indian dishes",
-      category: "pulse",
-      icon: "seedling"
-    });
-
-    const soybean = this.createCommodity({
-      name: "Soybean",
-      description: "Oilseed used for oil extraction and animal feed",
-      category: "oilseed",
-      icon: "seedling"
-    });
-
-    const mustard = this.createCommodity({
-      name: "Mustard Seeds",
-      description: "Oilseed used for oil extraction and condiment",
-      category: "oilseed",
-      icon: "seedling"
-    });
-
-    // Create circles
-    const bikaner = this.createCircle({
-      name: "Bikaner APMC Circle",
-      description: "Major trading hub for pulses and grains in Rajasthan",
-      latitude: 28.0229,
-      longitude: 73.3119,
-      radius: 50,
-      mainCommodities: ["Chana (Chickpea)", "Wheat"],
-      state: "Rajasthan",
-      district: "Bikaner",
-      isMandi: true
-    });
-
-    const delhi = this.createCircle({
-      name: "Delhi Trading Hub",
-      description: "Central trading hub connecting various production centers",
-      latitude: 28.7041,
-      longitude: 77.1025,
-      radius: 30,
-      mainCommodities: ["Wheat", "Chana (Chickpea)", "Mustard Seeds"],
-      state: "Delhi",
-      district: "Delhi",
-      isMandi: true
-    });
-
-    const indore = this.createCircle({
-      name: "Indore Soybean Circle",
-      description: "Major trading center for soybean in central India",
-      latitude: 22.7196,
-      longitude: 75.8577,
-      radius: 40,
-      mainCommodities: ["Soybean"],
-      state: "Madhya Pradesh",
-      district: "Indore",
-      isMandi: true
-    });
-
-    // Create circle commodities
-    this.createCircleCommodity({
-      circleId: bikaner.id,
-      commodityId: chana.id,
-      weight: 8,
-      currentPrice: 5300,
-      priceChange: -2.3,
-      arrivals: 240,
-      quality: "Fair to Good"
-    });
-
-    this.createCircleCommodity({
-      circleId: bikaner.id,
-      commodityId: wheat.id,
-      weight: 7,
-      currentPrice: 2100,
-      priceChange: 0.5,
-      arrivals: 3500,
-      quality: "Good"
-    });
-
-    this.createCircleCommodity({
-      circleId: delhi.id,
-      commodityId: chana.id,
-      weight: 6,
-      currentPrice: 5250,
-      priceChange: -2.3,
-      arrivals: 180,
-      quality: "Fair to Good"
-    });
-
-    this.createCircleCommodity({
-      circleId: indore.id,
-      commodityId: soybean.id,
-      weight: 9,
-      currentPrice: 4800,
-      priceChange: 1.8,
-      arrivals: 450,
-      quality: "Good"
-    });
-
-    this.createCircleCommodity({
-      circleId: delhi.id,
-      commodityId: mustard.id,
-      weight: 5,
-      currentPrice: 6200,
-      priceChange: -1.2,
-      arrivals: 120,
-      quality: "Good"
-    });
-
-    // Create users
-    const priya = this.createUser({
-      username: "priyasingh",
-      password: "password123",
-      name: "Priya Singh",
-      email: "priya@example.com",
-      phone: "9876543210",
-      userType: "broker",
-      bio: "Experienced commodity broker specializing in pulses and grains.",
-      avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80",
-      business: "Singh Trading Co.",
-      kycVerified: true,
-      nativeCircleId: bikaner.id
-    });
-
-    const rajesh = this.createUser({
-      username: "rajeshkumar",
-      password: "password123",
-      name: "Rajesh Kumar",
-      email: "rajesh@example.com",
-      phone: "9876543211",
-      userType: "trader",
-      bio: "Delhi-based commodity trader with 15 years of experience.",
-      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d",
-      business: "Kumar Enterprises",
-      kycVerified: true,
-      nativeCircleId: delhi.id
-    });
-
-    const sunita = this.createUser({
-      username: "sunitadevi",
-      password: "password123",
-      name: "Sunita Devi",
-      email: "sunita@example.com",
-      phone: "9876543212",
-      userType: "broker",
-      bio: "Agricultural broker connecting farmers to buyers.",
-      avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2",
-      business: "Kisan Connect Brokers",
-      kycVerified: true,
-      nativeCircleId: bikaner.id
-    });
-
-    const agrinews = this.createUser({
-      username: "agrinews",
-      password: "password123",
-      name: "Agri News Network",
-      email: "info@agrinews.com",
-      phone: "9876543213",
-      userType: "business",
-      bio: "Agricultural news network covering market trends and policies.",
-      avatar: "https://images.unsplash.com/photo-1568602471122-7832951cc4c5",
-      business: "Agri News Network Pvt. Ltd.",
-      kycVerified: true,
-      nativeCircleId: delhi.id
-    });
-
-    const vijay = this.createUser({
-      username: "vijayprocessors",
-      password: "password123",
-      name: "Vijay Processors Ltd.",
-      email: "info@vijayprocessors.com",
-      phone: "9876543214",
-      userType: "processor",
-      bio: "Leading processor of agricultural commodities in central India.",
-      avatar: "https://images.unsplash.com/photo-1560250097-0b93528c311a",
-      business: "Vijay Processors Ltd.",
-      kycVerified: true,
-      nativeCircleId: indore.id
-    });
-
-    const amit = this.createUser({
-      username: "amitsharma",
-      password: "password123",
-      name: "Amit Sharma",
-      email: "amit@example.com",
-      phone: "9876543215",
-      userType: "trader",
-      bio: "Trader specializing in pulses and grains.",
-      avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e",
-      business: "Sharma Trading",
-      kycVerified: true,
-      nativeCircleId: delhi.id
-    });
-
-    // Create user circles
-    this.createUserCircle({
-      userId: priya.id,
-      circleId: bikaner.id,
-      isNative: true
-    });
-
-    this.createUserCircle({
-      userId: priya.id,
-      circleId: delhi.id,
-      isNative: false
-    });
-
-    this.createUserCircle({
-      userId: rajesh.id,
-      circleId: delhi.id,
-      isNative: true
-    });
-
-    this.createUserCircle({
-      userId: sunita.id,
-      circleId: bikaner.id,
-      isNative: true
-    });
-
-    // Create posts
-    this.createPost({
-      userId: rajesh.id,
-      content: "Major price update for Chana: Prices have decreased by ₹120/quintal today in Delhi markets due to increased arrivals from Rajasthan. Good quality Chana is now trading at ₹5200-5350/quintal. #ChanaPrices #DelhiMarket",
-      type: "price_update",
-      circleId: delhi.id,
-      commodityId: chana.id,
-      metadata: {
-        currentPrice: "₹5,200-5,350/quintal",
-        priceChange: "₹120/quintal",
-        changeDirection: "down",
-        arrivals: "240 tonnes",
-        quality: "Fair to Good"
-      }
-    });
-
-    this.createPost({
-      userId: agrinews.id,
-      content: "Government announces new MSP policy for Kharif crops. The changes will affect pricing for paddy, maize, and soybean starting next season.",
-      type: "news",
-      imageUrl: "https://images.unsplash.com/photo-1590682680695-43b964a3ae17",
-      metadata: {
-        headline: "New MSP Policy to Benefit Farmers Across India",
-        summary: "The Cabinet Committee on Economic Affairs has approved new Minimum Support Prices for Kharif crops, with an average increase of 6% across commodities...",
-        url: "#"
-      }
-    });
-
-    this.createPost({
-      userId: sunita.id,
-      content: "Bikaner APMC is experiencing high arrivals of wheat this week. Quality is excellent due to favorable weather conditions last month. Several processors from Delhi are at the mandi looking for bulk purchases. Good opportunity for local farmers! 🌾",
-      type: "circle_update",
-      circleId: bikaner.id,
-      commodityId: wheat.id,
-      metadata: {
-        arrivals: "3,500 quintals",
-        activeBuyers: "85+",
-        topCommodity: "Wheat",
-        priceTrend: "Stable to Rising",
-        trendDirection: "up"
-      }
-    });
-
-    // Create connections
-    this.createConnection({
-      requesterId: priya.id,
-      receiverId: rajesh.id,
-      status: "accepted"
-    });
-
-    this.createConnection({
-      requesterId: priya.id,
-      receiverId: sunita.id,
-      status: "accepted"
-    });
-
-    this.createConnection({
-      requesterId: priya.id,
-      receiverId: agrinews.id,
-      status: "accepted"
-    });
-  }
-
-  // User methods
+  // User operations
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username
-    );
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.email === email
-    );
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.userId++;
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
+    const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }
 
   async updateUser(id: number, user: Partial<User>): Promise<User | undefined> {
-    const existingUser = this.users.get(id);
-    if (!existingUser) return undefined;
-    
-    const updatedUser = { ...existingUser, ...user };
-    this.users.set(id, updatedUser);
-    return updatedUser;
+    const [updatedUser] = await db
+      .update(users)
+      .set(user)
+      .where(eq(users.id, id))
+      .returning();
+    return updatedUser || undefined;
   }
 
   async listUsers(): Promise<User[]> {
-    return Array.from(this.users.values());
+    return await db.select().from(users);
   }
 
-  // Circle methods
+  // Circle operations
   async getCircle(id: number): Promise<Circle | undefined> {
-    return this.circles.get(id);
+    const [circle] = await db.select().from(circles).where(eq(circles.id, id));
+    return circle || undefined;
   }
 
-  async createCircle(insertCircle: InsertCircle): Promise<Circle> {
-    const id = this.circleId++;
-    const circle: Circle = { ...insertCircle, id };
-    this.circles.set(id, circle);
-    return circle;
+  async createCircle(circle: InsertCircle): Promise<Circle> {
+    const [newCircle] = await db.insert(circles).values(circle).returning();
+    return newCircle;
   }
 
   async updateCircle(id: number, circle: Partial<Circle>): Promise<Circle | undefined> {
-    const existingCircle = this.circles.get(id);
-    if (!existingCircle) return undefined;
-    
-    const updatedCircle = { ...existingCircle, ...circle };
-    this.circles.set(id, updatedCircle);
-    return updatedCircle;
+    const [updatedCircle] = await db
+      .update(circles)
+      .set(circle)
+      .where(eq(circles.id, id))
+      .returning();
+    return updatedCircle || undefined;
   }
 
   async listCircles(): Promise<Circle[]> {
-    return Array.from(this.circles.values());
+    return await db.select().from(circles);
   }
 
   async getCirclesByState(state: string): Promise<Circle[]> {
-    return Array.from(this.circles.values()).filter(
-      (circle) => circle.state === state
-    );
+    return await db.select().from(circles).where(eq(circles.state, state));
   }
 
   async getCirclesByDistrict(district: string): Promise<Circle[]> {
-    return Array.from(this.circles.values()).filter(
-      (circle) => circle.district === district
-    );
+    return await db.select().from(circles).where(eq(circles.district, district));
   }
 
   async getNearbyCircles(lat: number, lng: number, radiusKm: number): Promise<Circle[]> {
-    // Simple calculation for demo purposes
-    return Array.from(this.circles.values()).filter((circle) => {
+    // This is a simplified approach - in production, would use PostGIS or similar
+    // Get all circles and filter by approximate distance
+    const allCircles = await db.select().from(circles);
+    return allCircles.filter((circle) => {
       const distance = Math.sqrt(
         Math.pow(circle.latitude - lat, 2) + Math.pow(circle.longitude - lng, 2)
       ) * 111; // Rough conversion to km
@@ -523,328 +181,397 @@ export class MemStorage implements IStorage {
     });
   }
 
-  // Asset methods
+  // Asset operations
   async getAsset(id: number): Promise<Asset | undefined> {
-    return this.assets.get(id);
+    const [asset] = await db.select().from(assets).where(eq(assets.id, id));
+    return asset || undefined;
   }
 
-  async createAsset(insertAsset: InsertAsset): Promise<Asset> {
-    const id = this.assetId++;
-    const asset: Asset = { ...insertAsset, id };
-    this.assets.set(id, asset);
-    return asset;
+  async createAsset(asset: InsertAsset): Promise<Asset> {
+    const [newAsset] = await db.insert(assets).values(asset).returning();
+    return newAsset;
   }
 
   async updateAsset(id: number, asset: Partial<Asset>): Promise<Asset | undefined> {
-    const existingAsset = this.assets.get(id);
-    if (!existingAsset) return undefined;
-    
-    const updatedAsset = { ...existingAsset, ...asset };
-    this.assets.set(id, updatedAsset);
-    return updatedAsset;
+    const [updatedAsset] = await db
+      .update(assets)
+      .set(asset)
+      .where(eq(assets.id, id))
+      .returning();
+    return updatedAsset || undefined;
   }
 
   async listAssets(): Promise<Asset[]> {
-    return Array.from(this.assets.values());
+    return await db.select().from(assets);
   }
 
   async getAssetsByCircle(circleId: number): Promise<Asset[]> {
-    return Array.from(this.assets.values()).filter(
-      (asset) => asset.circleId === circleId
-    );
+    return await db.select().from(assets).where(eq(assets.circleId, circleId));
   }
 
   async getAssetsByOwner(ownerId: number): Promise<Asset[]> {
-    return Array.from(this.assets.values()).filter(
-      (asset) => asset.ownerId === ownerId
-    );
+    return await db.select().from(assets).where(eq(assets.ownerId, ownerId));
   }
 
-  // Commodity methods
+  // Commodity operations
   async getCommodity(id: number): Promise<Commodity | undefined> {
-    return this.commodities.get(id);
+    const [commodity] = await db.select().from(commodities).where(eq(commodities.id, id));
+    return commodity || undefined;
   }
 
   async getCommodityByName(name: string): Promise<Commodity | undefined> {
-    return Array.from(this.commodities.values()).find(
-      (commodity) => commodity.name === name
-    );
+    const [commodity] = await db.select().from(commodities).where(eq(commodities.name, name));
+    return commodity || undefined;
   }
 
-  async createCommodity(insertCommodity: InsertCommodity): Promise<Commodity> {
-    const id = this.commodityId++;
-    const commodity: Commodity = { ...insertCommodity, id };
-    this.commodities.set(id, commodity);
-    return commodity;
+  async createCommodity(commodity: InsertCommodity): Promise<Commodity> {
+    const [newCommodity] = await db.insert(commodities).values(commodity).returning();
+    return newCommodity;
   }
 
   async updateCommodity(id: number, commodity: Partial<Commodity>): Promise<Commodity | undefined> {
-    const existingCommodity = this.commodities.get(id);
-    if (!existingCommodity) return undefined;
-    
-    const updatedCommodity = { ...existingCommodity, ...commodity };
-    this.commodities.set(id, updatedCommodity);
-    return updatedCommodity;
+    const [updatedCommodity] = await db
+      .update(commodities)
+      .set(commodity)
+      .where(eq(commodities.id, id))
+      .returning();
+    return updatedCommodity || undefined;
   }
 
   async listCommodities(): Promise<Commodity[]> {
-    return Array.from(this.commodities.values());
+    return await db.select().from(commodities);
   }
 
-  // Circle-Commodity methods
+  // Circle-Commodity operations
   async getCircleCommodity(id: number): Promise<CircleCommodity | undefined> {
-    return this.circleCommodities.get(id);
+    const [circleCommodity] = await db
+      .select()
+      .from(circleCommodities)
+      .where(eq(circleCommodities.id, id));
+    return circleCommodity || undefined;
   }
 
   async getCircleCommodityByIds(circleId: number, commodityId: number): Promise<CircleCommodity | undefined> {
-    return Array.from(this.circleCommodities.values()).find(
-      (cc) => cc.circleId === circleId && cc.commodityId === commodityId
-    );
+    const [circleCommodity] = await db
+      .select()
+      .from(circleCommodities)
+      .where(and(
+        eq(circleCommodities.circleId, circleId),
+        eq(circleCommodities.commodityId, commodityId)
+      ));
+    return circleCommodity || undefined;
   }
 
-  async createCircleCommodity(insertCircleCommodity: InsertCircleCommodity): Promise<CircleCommodity> {
-    const id = this.circleCommodityId++;
-    const circleCommodity: CircleCommodity = { ...insertCircleCommodity, id };
-    this.circleCommodities.set(id, circleCommodity);
-    return circleCommodity;
+  async createCircleCommodity(circleCommodity: InsertCircleCommodity): Promise<CircleCommodity> {
+    const [newCircleCommodity] = await db
+      .insert(circleCommodities)
+      .values(circleCommodity)
+      .returning();
+    return newCircleCommodity;
   }
 
   async updateCircleCommodity(id: number, circleCommodity: Partial<CircleCommodity>): Promise<CircleCommodity | undefined> {
-    const existingCircleCommodity = this.circleCommodities.get(id);
-    if (!existingCircleCommodity) return undefined;
-    
-    const updatedCircleCommodity = { ...existingCircleCommodity, ...circleCommodity };
-    this.circleCommodities.set(id, updatedCircleCommodity);
-    return updatedCircleCommodity;
+    const [updatedCircleCommodity] = await db
+      .update(circleCommodities)
+      .set(circleCommodity)
+      .where(eq(circleCommodities.id, id))
+      .returning();
+    return updatedCircleCommodity || undefined;
   }
 
   async listCircleCommodities(): Promise<CircleCommodity[]> {
-    return Array.from(this.circleCommodities.values());
+    return await db.select().from(circleCommodities);
   }
 
   async getCommoditiesByCircle(circleId: number): Promise<CircleCommodity[]> {
-    return Array.from(this.circleCommodities.values()).filter(
-      (cc) => cc.circleId === circleId
-    );
+    return await db
+      .select()
+      .from(circleCommodities)
+      .where(eq(circleCommodities.circleId, circleId));
   }
 
   async getCirclesByCommodity(commodityId: number): Promise<CircleCommodity[]> {
-    return Array.from(this.circleCommodities.values()).filter(
-      (cc) => cc.commodityId === commodityId
-    );
+    return await db
+      .select()
+      .from(circleCommodities)
+      .where(eq(circleCommodities.commodityId, commodityId));
   }
 
   async getTrendingCommodities(limit: number): Promise<CircleCommodity[]> {
-    return Array.from(this.circleCommodities.values())
-      .sort((a, b) => Math.abs(b.priceChange || 0) - Math.abs(a.priceChange || 0))
-      .slice(0, limit);
+    return await db
+      .select()
+      .from(circleCommodities)
+      .orderBy(desc(sql`ABS(${circleCommodities.priceChange})`))
+      .limit(limit);
   }
 
-  // User-Circle methods
+  // User-Circle operations
   async getUserCircle(id: number): Promise<UserCircle | undefined> {
-    return this.userCircles.get(id);
+    const [userCircle] = await db
+      .select()
+      .from(userCircles)
+      .where(eq(userCircles.id, id));
+    return userCircle || undefined;
   }
 
-  async createUserCircle(insertUserCircle: InsertUserCircle): Promise<UserCircle> {
-    const id = this.userCircleId++;
-    const userCircle: UserCircle = { ...insertUserCircle, id };
-    this.userCircles.set(id, userCircle);
-    return userCircle;
+  async createUserCircle(userCircle: InsertUserCircle): Promise<UserCircle> {
+    const [newUserCircle] = await db
+      .insert(userCircles)
+      .values(userCircle)
+      .returning();
+    return newUserCircle;
   }
 
   async deleteUserCircle(userId: number, circleId: number): Promise<boolean> {
-    const userCircleToDelete = Array.from(this.userCircles.values()).find(
-      (uc) => uc.userId === userId && uc.circleId === circleId
-    );
-    if (!userCircleToDelete) return false;
-    
-    return this.userCircles.delete(userCircleToDelete.id);
+    const result = await db
+      .delete(userCircles)
+      .where(and(
+        eq(userCircles.userId, userId),
+        eq(userCircles.circleId, circleId)
+      ));
+    return !!result.rowCount && result.rowCount > 0;
   }
 
   async listUserCircles(userId: number): Promise<UserCircle[]> {
-    return Array.from(this.userCircles.values()).filter(
-      (uc) => uc.userId === userId
-    );
+    return await db
+      .select()
+      .from(userCircles)
+      .where(eq(userCircles.userId, userId));
   }
 
   async getUsersByCircle(circleId: number): Promise<UserCircle[]> {
-    return Array.from(this.userCircles.values()).filter(
-      (uc) => uc.circleId === circleId
-    );
+    return await db
+      .select()
+      .from(userCircles)
+      .where(eq(userCircles.circleId, circleId));
   }
 
-  // User-Commodity methods
+  // User-Commodity operations
   async getUserCommodity(id: number): Promise<UserCommodity | undefined> {
-    return this.userCommodities.get(id);
+    const [userCommodity] = await db
+      .select()
+      .from(userCommodities)
+      .where(eq(userCommodities.id, id));
+    return userCommodity || undefined;
   }
 
-  async createUserCommodity(insertUserCommodity: InsertUserCommodity): Promise<UserCommodity> {
-    const id = this.userCommodityId++;
-    const userCommodity: UserCommodity = { ...insertUserCommodity, id };
-    this.userCommodities.set(id, userCommodity);
-    return userCommodity;
+  async createUserCommodity(userCommodity: InsertUserCommodity): Promise<UserCommodity> {
+    const [newUserCommodity] = await db
+      .insert(userCommodities)
+      .values(userCommodity)
+      .returning();
+    return newUserCommodity;
   }
 
   async deleteUserCommodity(userId: number, commodityId: number): Promise<boolean> {
-    const userCommodityToDelete = Array.from(this.userCommodities.values()).find(
-      (uc) => uc.userId === userId && uc.commodityId === commodityId
-    );
-    if (!userCommodityToDelete) return false;
-    
-    return this.userCommodities.delete(userCommodityToDelete.id);
+    const result = await db
+      .delete(userCommodities)
+      .where(and(
+        eq(userCommodities.userId, userId),
+        eq(userCommodities.commodityId, commodityId)
+      ));
+    return !!result.rowCount && result.rowCount > 0;
   }
 
   async listUserCommodities(userId: number): Promise<UserCommodity[]> {
-    return Array.from(this.userCommodities.values()).filter(
-      (uc) => uc.userId === userId
-    );
+    return await db
+      .select()
+      .from(userCommodities)
+      .where(eq(userCommodities.userId, userId));
   }
 
   async getUsersByCommodity(commodityId: number): Promise<UserCommodity[]> {
-    return Array.from(this.userCommodities.values()).filter(
-      (uc) => uc.commodityId === commodityId
-    );
+    return await db
+      .select()
+      .from(userCommodities)
+      .where(eq(userCommodities.commodityId, commodityId));
   }
 
-  // Connection methods
+  // Connection operations
   async getConnection(id: number): Promise<Connection | undefined> {
-    return this.connections.get(id);
+    const [connection] = await db
+      .select()
+      .from(connections)
+      .where(eq(connections.id, id));
+    return connection || undefined;
   }
 
-  async createConnection(insertConnection: InsertConnection): Promise<Connection> {
-    const id = this.connectionId++;
-    const connection: Connection = { ...insertConnection, id };
-    this.connections.set(id, connection);
-    return connection;
+  async createConnection(connection: InsertConnection): Promise<Connection> {
+    const [newConnection] = await db
+      .insert(connections)
+      .values(connection)
+      .returning();
+    return newConnection;
   }
 
   async updateConnectionStatus(id: number, status: string): Promise<Connection | undefined> {
-    const existingConnection = this.connections.get(id);
-    if (!existingConnection) return undefined;
-    
-    const updatedConnection = { ...existingConnection, status };
-    this.connections.set(id, updatedConnection);
-    return updatedConnection;
+    const [updatedConnection] = await db
+      .update(connections)
+      .set({ status })
+      .where(eq(connections.id, id))
+      .returning();
+    return updatedConnection || undefined;
   }
 
   async getUserConnections(userId: number): Promise<Connection[]> {
-    return Array.from(this.connections.values()).filter(
-      (connection) => 
-        (connection.requesterId === userId || connection.receiverId === userId) &&
-        connection.status === "accepted"
-    );
+    return await db
+      .select()
+      .from(connections)
+      .where(and(
+        or(
+          eq(connections.requesterId, userId),
+          eq(connections.receiverId, userId)
+        ),
+        eq(connections.status, "accepted")
+      ));
   }
 
   async getPendingConnections(userId: number): Promise<Connection[]> {
-    return Array.from(this.connections.values()).filter(
-      (connection) => 
-        connection.receiverId === userId && 
-        connection.status === "pending"
-    );
+    return await db
+      .select()
+      .from(connections)
+      .where(and(
+        eq(connections.receiverId, userId),
+        eq(connections.status, "pending")
+      ));
   }
 
   async getConnectionStatus(requesterId: number, receiverId: number): Promise<Connection | undefined> {
-    return Array.from(this.connections.values()).find(
-      (connection) => 
-        (connection.requesterId === requesterId && connection.receiverId === receiverId) ||
-        (connection.requesterId === receiverId && connection.receiverId === requesterId)
-    );
+    const [connection] = await db
+      .select()
+      .from(connections)
+      .where(or(
+        and(
+          eq(connections.requesterId, requesterId),
+          eq(connections.receiverId, receiverId)
+        ),
+        and(
+          eq(connections.requesterId, receiverId),
+          eq(connections.receiverId, requesterId)
+        )
+      ));
+    return connection || undefined;
   }
 
-  // Post methods
+  // Post operations
   async getPost(id: number): Promise<Post | undefined> {
-    return this.posts.get(id);
+    const [post] = await db
+      .select()
+      .from(posts)
+      .where(eq(posts.id, id));
+    return post || undefined;
   }
 
-  async createPost(insertPost: InsertPost): Promise<Post> {
-    const id = this.postId++;
-    const post: Post = { ...insertPost, id };
-    this.posts.set(id, post);
-    return post;
+  async createPost(post: InsertPost): Promise<Post> {
+    const [newPost] = await db
+      .insert(posts)
+      .values(post)
+      .returning();
+    return newPost;
   }
 
   async updatePost(id: number, post: Partial<Post>): Promise<Post | undefined> {
-    const existingPost = this.posts.get(id);
-    if (!existingPost) return undefined;
-    
-    const updatedPost = { ...existingPost, ...post };
-    this.posts.set(id, updatedPost);
-    return updatedPost;
+    const [updatedPost] = await db
+      .update(posts)
+      .set(post)
+      .where(eq(posts.id, id))
+      .returning();
+    return updatedPost || undefined;
   }
 
   async deletePost(id: number): Promise<boolean> {
-    return this.posts.delete(id);
+    const result = await db
+      .delete(posts)
+      .where(eq(posts.id, id));
+    return !!result.rowCount && result.rowCount > 0;
   }
 
   async listPosts(limit: number, offset: number): Promise<Post[]> {
-    return Array.from(this.posts.values())
-      .sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime())
-      .slice(offset, offset + limit);
+    return await db
+      .select()
+      .from(posts)
+      .orderBy(desc(posts.createdAt))
+      .limit(limit)
+      .offset(offset);
   }
 
   async getUserPosts(userId: number): Promise<Post[]> {
-    return Array.from(this.posts.values())
-      .filter((post) => post.userId === userId)
-      .sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
+    return await db
+      .select()
+      .from(posts)
+      .where(eq(posts.userId, userId))
+      .orderBy(desc(posts.createdAt));
   }
 
   async getCirclePosts(circleId: number): Promise<Post[]> {
-    return Array.from(this.posts.values())
-      .filter((post) => post.circleId === circleId)
-      .sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
+    return await db
+      .select()
+      .from(posts)
+      .where(eq(posts.circleId, circleId))
+      .orderBy(desc(posts.createdAt));
   }
 
   async getCommodityPosts(commodityId: number): Promise<Post[]> {
-    return Array.from(this.posts.values())
-      .filter((post) => post.commodityId === commodityId)
-      .sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
+    return await db
+      .select()
+      .from(posts)
+      .where(eq(posts.commodityId, commodityId))
+      .orderBy(desc(posts.createdAt));
   }
 
-  // KYC methods
+  // KYC operations
   async getKycRequest(id: number): Promise<KycRequest | undefined> {
-    return this.kycRequests.get(id);
+    const [kycRequest] = await db
+      .select()
+      .from(kycRequests)
+      .where(eq(kycRequests.id, id));
+    return kycRequest || undefined;
   }
 
   async getKycRequestByUser(userId: number): Promise<KycRequest | undefined> {
-    return Array.from(this.kycRequests.values()).find(
-      (request) => request.userId === userId
-    );
+    const [kycRequest] = await db
+      .select()
+      .from(kycRequests)
+      .where(eq(kycRequests.userId, userId));
+    return kycRequest || undefined;
   }
 
-  async createKycRequest(insertKycRequest: InsertKycRequest): Promise<KycRequest> {
-    const id = this.kycRequestId++;
-    const kycRequest: KycRequest = { ...insertKycRequest, id };
-    this.kycRequests.set(id, kycRequest);
-    return kycRequest;
+  async createKycRequest(kycRequest: InsertKycRequest): Promise<KycRequest> {
+    const [newKycRequest] = await db
+      .insert(kycRequests)
+      .values(kycRequest)
+      .returning();
+    return newKycRequest;
   }
 
   async updateKycRequestStatus(id: number, status: string): Promise<KycRequest | undefined> {
-    const existingKycRequest = this.kycRequests.get(id);
-    if (!existingKycRequest) return undefined;
+    const [updatedKycRequest] = await db
+      .update(kycRequests)
+      .set({ status })
+      .where(eq(kycRequests.id, id))
+      .returning();
     
-    const updatedKycRequest = { ...existingKycRequest, status };
-    this.kycRequests.set(id, updatedKycRequest);
-
     // If approved, update user's KYC status
-    if (status === "approved") {
-      const user = this.users.get(existingKycRequest.userId);
-      if (user) {
-        this.updateUser(user.id, { kycVerified: true });
-      }
+    if (status === "approved" && updatedKycRequest) {
+      await db
+        .update(users)
+        .set({ kycVerified: true })
+        .where(eq(users.id, updatedKycRequest.userId));
     }
     
-    return updatedKycRequest;
+    return updatedKycRequest || undefined;
   }
 
   async listKycRequests(): Promise<KycRequest[]> {
-    return Array.from(this.kycRequests.values());
+    return await db.select().from(kycRequests);
   }
 
   async getPendingKycRequests(): Promise<KycRequest[]> {
-    return Array.from(this.kycRequests.values()).filter(
-      (request) => request.status === "pending"
-    );
+    return await db
+      .select()
+      .from(kycRequests)
+      .where(eq(kycRequests.status, "pending"));
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
