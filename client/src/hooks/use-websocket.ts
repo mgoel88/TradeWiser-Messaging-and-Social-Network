@@ -33,102 +33,12 @@ export function useWebSocket() {
   const { toast } = useToast();
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  const connect = useCallback(() => {
-    if (socketRef.current && 
-        (socketRef.current.readyState === WebSocket.OPEN || 
-         socketRef.current.readyState === WebSocket.CONNECTING)) {
-      return;
-    }
-    
-    try {
-      setStatus(WebSocketStatus.CONNECTING);
-      
-      // Determine the WebSocket URL based on the current environment
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const wsUrl = `${protocol}//${window.location.host}/ws`;
-      
-      const socket = new WebSocket(wsUrl);
-      socketRef.current = socket;
-      
-      socket.onopen = () => {
-        setStatus(WebSocketStatus.OPEN);
-        console.log('WebSocket connection established');
-        
-        // Send initial connection message with user data if available
-        const userJson = localStorage.getItem('user');
-        if (userJson) {
-          try {
-            const user = JSON.parse(userJson);
-            socket.send(JSON.stringify({
-              type: 'connect',
-              userId: user.id,
-              timestamp: new Date().toISOString()
-            }));
-          } catch (error) {
-            console.error('Failed to parse user data from localStorage', error);
-          }
-        }
-      };
-      
-      socket.onmessage = (event) => {
-        try {
-          const message = JSON.parse(event.data) as WebSocketMessage;
-          handleMessage(message);
-        } catch (error) {
-          console.error('Failed to parse WebSocket message', error);
-        }
-      };
-      
-      socket.onclose = () => {
-        setStatus(WebSocketStatus.CLOSED);
-        console.log('WebSocket connection closed');
-        
-        // Attempt to reconnect after a delay
-        if (reconnectTimeoutRef.current) {
-          clearTimeout(reconnectTimeoutRef.current);
-        }
-        reconnectTimeoutRef.current = setTimeout(() => {
-          connect();
-        }, 5000); // Try to reconnect after 5 seconds
-      };
-      
-      socket.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        // Close the socket on error to trigger reconnect
-        socket.close();
-      };
-    } catch (error) {
-      console.error('Failed to establish WebSocket connection', error);
-      setStatus(WebSocketStatus.CLOSED);
-    }
-  }, []);
+  // Get the addPriceUpdate function reference outside the handleMessage function
+  const addPriceUpdate = usePriceUpdatesStore(state => state.addPriceUpdate);
   
-  const disconnect = useCallback(() => {
-    if (socketRef.current) {
-      setStatus(WebSocketStatus.CLOSING);
-      socketRef.current.close();
-      socketRef.current = null;
-    }
-    
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
-  }, []);
-  
-  const send = useCallback((data: any) => {
-    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-      socketRef.current.send(JSON.stringify(data));
-    } else {
-      console.error('Cannot send message, WebSocket is not open');
-    }
-  }, []);
-  
-  const handleMessage = (message: WebSocketMessage) => {
+  // Define handleMessage inside useCallback to avoid stale closures 
+  const handleMessage = useCallback((message: WebSocketMessage) => {
     console.log('Received WebSocket message:', message);
-    
-    // Get priceUpdatesStore's addPriceUpdate function
-    const addPriceUpdate = usePriceUpdatesStore.getState().addPriceUpdate;
     
     // Handle different message types
     switch (message.type) {
@@ -214,7 +124,98 @@ export function useWebSocket() {
       default:
         console.log('Unhandled message type:', message.type);
     }
-  };
+  }, [toast, addPriceUpdate]);
+  
+  const connect = useCallback(() => {
+    if (socketRef.current && 
+        (socketRef.current.readyState === WebSocket.OPEN || 
+         socketRef.current.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
+    
+    try {
+      setStatus(WebSocketStatus.CONNECTING);
+      
+      // Determine the WebSocket URL based on the current environment
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      
+      const socket = new WebSocket(wsUrl);
+      socketRef.current = socket;
+      
+      socket.onopen = () => {
+        setStatus(WebSocketStatus.OPEN);
+        console.log('WebSocket connection established');
+        
+        // Send initial connection message with user data if available
+        const userJson = localStorage.getItem('user');
+        if (userJson) {
+          try {
+            const user = JSON.parse(userJson);
+            socket.send(JSON.stringify({
+              type: 'connect',
+              userId: user.id,
+              timestamp: new Date().toISOString()
+            }));
+          } catch (error) {
+            console.error('Failed to parse user data from localStorage', error);
+          }
+        }
+      };
+      
+      socket.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data) as WebSocketMessage;
+          handleMessage(message);
+        } catch (error) {
+          console.error('Failed to parse WebSocket message', error);
+        }
+      };
+      
+      socket.onclose = () => {
+        setStatus(WebSocketStatus.CLOSED);
+        console.log('WebSocket connection closed');
+        
+        // Attempt to reconnect after a delay
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+        }
+        reconnectTimeoutRef.current = setTimeout(() => {
+          connect();
+        }, 5000); // Try to reconnect after 5 seconds
+      };
+      
+      socket.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        // Close the socket on error to trigger reconnect
+        socket.close();
+      };
+    } catch (error) {
+      console.error('Failed to establish WebSocket connection', error);
+      setStatus(WebSocketStatus.CLOSED);
+    }
+  }, [handleMessage]);
+  
+  const disconnect = useCallback(() => {
+    if (socketRef.current) {
+      setStatus(WebSocketStatus.CLOSING);
+      socketRef.current.close();
+      socketRef.current = null;
+    }
+    
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+  }, []);
+  
+  const send = useCallback((data: any) => {
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify(data));
+    } else {
+      console.error('Cannot send message, WebSocket is not open');
+    }
+  }, []);
   
   // Connect on component mount and disconnect on unmount
   useEffect(() => {
