@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/tabs";
 import { Wheat, Loader, Search, ArrowUp, ArrowDown, BarChart } from "lucide-react";
 import CommodityItem from "@/components/commodity/CommodityItem";
+import { AnimatedSkeleton, AnimatedCardSkeleton } from "@/components/ui/animated-skeleton";
 import { COMMODITY_CATEGORIES } from "@/lib/constants";
 
 const Commodities: React.FC = () => {
@@ -70,8 +71,17 @@ const Commodities: React.FC = () => {
           </CardHeader>
           <CardContent>
             {trendingLoading ? (
-              <div className="flex justify-center py-6">
-                <Loader className="h-6 w-6 animate-spin text-primary" />
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {[...Array(4)].map((_, i) => (
+                  <AnimatedCardSkeleton 
+                    key={i}
+                    variant="shimmer"
+                    imageHeight={50}
+                    lines={2}
+                    hasFooter={false}
+                    className="h-28"
+                  />
+                ))}
               </div>
             ) : trendingData?.trendingCommodities && trendingData.trendingCommodities.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -196,9 +206,37 @@ const CommoditiesList: React.FC<CommoditiesListProps> = ({
 }) => {
   if (isLoading) {
     return (
-      <div className="flex justify-center py-12">
-        <Loader className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <Card>
+        <CardHeader className="pb-2">
+          <AnimatedSkeleton className="h-7 w-40" />
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100">
+            <div className="md:pr-4">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="py-3 flex items-center">
+                  <AnimatedSkeleton className="h-10 w-10 rounded-full" variant="shimmer" />
+                  <div className="ml-3 space-y-2">
+                    <AnimatedSkeleton className="h-5 w-32" variant="shimmer" />
+                    <AnimatedSkeleton className="h-4 w-24" variant="shimmer" />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="md:pl-4 pt-0 md:pt-0">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="py-3 flex items-center">
+                  <AnimatedSkeleton className="h-10 w-10 rounded-full" variant="shimmer" />
+                  <div className="ml-3 space-y-2">
+                    <AnimatedSkeleton className="h-5 w-32" variant="shimmer" />
+                    <AnimatedSkeleton className="h-4 w-24" variant="shimmer" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
   

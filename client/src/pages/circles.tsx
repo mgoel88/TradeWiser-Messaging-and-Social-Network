@@ -14,6 +14,7 @@ import {
 import { CircleDot, Loader, Search, Plus, Users, MapPin } from "lucide-react";
 import { Map } from "@/components/ui/map";
 import CircleItem from "@/components/circle/CircleItem";
+import { AnimatedSkeleton, AnimatedCardSkeleton } from "@/components/ui/animated-skeleton";
 import { STATES } from "@/lib/constants";
 
 const Circles: React.FC = () => {
@@ -121,9 +122,40 @@ const Circles: React.FC = () => {
           
           <TabsContent value="list" className="space-y-6 m-0">
             {isLoading ? (
-              <div className="flex justify-center py-12">
-                <Loader className="h-8 w-8 animate-spin text-primary" />
-              </div>
+              <Card>
+                <CardHeader className="pb-2">
+                  <AnimatedSkeleton className="h-7 w-48" variant="shimmer" />
+                </CardHeader>
+                <CardContent>
+                  <div className="divide-y divide-gray-100">
+                    {[...Array(4)].map((_, i) => (
+                      <div key={i} className="py-4">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                          <div className="flex items-start gap-3">
+                            <AnimatedSkeleton className="w-12 h-12 rounded-full" variant="shimmer" />
+                            <div>
+                              <div className="flex items-center flex-wrap gap-2 mb-2">
+                                <AnimatedSkeleton className="h-6 w-48" variant="shimmer" />
+                                <AnimatedSkeleton className="h-5 w-24" variant="shimmer" />
+                              </div>
+                              <AnimatedSkeleton className="h-4 w-72 mb-2" variant="shimmer" />
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                <AnimatedSkeleton className="h-6 w-16" variant="shimmer" />
+                                <AnimatedSkeleton className="h-6 w-24" variant="shimmer" />
+                                <AnimatedSkeleton className="h-6 w-20" variant="shimmer" />
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex gap-2 ml-auto">
+                            <AnimatedSkeleton className="h-9 w-28" variant="shimmer" />
+                            <AnimatedSkeleton className="h-9 w-28" variant="shimmer" />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
             ) : filteredCircles.length > 0 ? (
               <Card>
                 <CardHeader className="pb-2">
@@ -209,7 +241,20 @@ const Circles: React.FC = () => {
                   <Map height="400px" />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {!isLoading && filteredCircles.slice(0, 4).map((circle: any) => (
+                  {isLoading ? (
+                    <>
+                      {[...Array(4)].map((_, i) => (
+                        <div key={i} className="flex items-center p-3 bg-gray-50 rounded-lg">
+                          <AnimatedSkeleton className="w-8 h-8 rounded-full" variant="shimmer" />
+                          <div className="ml-3 flex-1">
+                            <AnimatedSkeleton className="h-4 w-32 mb-1" variant="shimmer" />
+                            <AnimatedSkeleton className="h-3 w-20" variant="shimmer" />
+                          </div>
+                          <AnimatedSkeleton className="h-6 w-12" variant="shimmer" />
+                        </div>
+                      ))}
+                    </>
+                  ) : filteredCircles.slice(0, 4).map((circle: any) => (
                     <div key={circle.id} className="flex items-center p-3 bg-gray-50 rounded-lg">
                       <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-primary">
                         <CircleDot className="h-4 w-4" />
@@ -234,21 +279,47 @@ const Circles: React.FC = () => {
         </Tabs>
         
         {/* My Circles Section */}
-        {sessionData?.user && userCirclesData?.circles && userCirclesData.circles.length > 0 && (
+        {sessionData?.user && (
           <Card className="mt-6">
             <CardHeader className="pb-2">
               <h2 className="font-heading font-semibold text-lg">My Circles</h2>
             </CardHeader>
             <CardContent>
-              <div className="divide-y divide-gray-100">
-                {userCirclesData.circles.map((circle: any) => (
-                  <CircleItem 
-                    key={circle.id} 
-                    circle={circle}
-                    isNative={circle.id === sessionData.user.nativeCircleId}
-                  />
-                ))}
-              </div>
+              {!userCirclesData?.circles ? (
+                <div className="divide-y divide-gray-100">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="py-4">
+                      <div className="flex items-start gap-3">
+                        <AnimatedSkeleton className="w-10 h-10 rounded-full" variant="shimmer" />
+                        <div className="flex-1">
+                          <AnimatedSkeleton className="h-5 w-48 mb-2" variant="shimmer" />
+                          <AnimatedSkeleton className="h-4 w-64 mb-1" variant="shimmer" />
+                          <div className="flex gap-2 mt-2">
+                            <AnimatedSkeleton className="h-6 w-16" variant="shimmer" />
+                            <AnimatedSkeleton className="h-6 w-20" variant="shimmer" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : userCirclesData.circles.length > 0 ? (
+                <div className="divide-y divide-gray-100">
+                  {userCirclesData.circles.map((circle: any) => (
+                    <CircleItem 
+                      key={circle.id} 
+                      circle={circle}
+                      isNative={circle.id === sessionData.user.nativeCircleId}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="py-6 text-center">
+                  <CircleDot className="h-10 w-10 mx-auto mb-3 text-gray-300" />
+                  <p className="text-gray-500">You haven't joined any circles yet.</p>
+                  <Button className="mt-4">Browse Circles</Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
