@@ -141,6 +141,15 @@ const Sidebar = () => {
               <span>Messages</span>
             </Button>
           </Link>
+          <Link href="/market-news">
+            <Button
+              variant="ghost" 
+              className="flex items-center w-full justify-start px-4 py-3 rounded-none hover:bg-gray-50"
+            >
+              <Newspaper className="text-primary w-5 h-5 mr-3" />
+              <span>Market News</span>
+            </Button>
+          </Link>
           <Link href="/market-data">
             <Button
               variant="ghost" 

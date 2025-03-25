@@ -51,7 +51,9 @@ export const en = {
     kyc: 'KYC Verification',
     notifications: 'Notifications',
     trending: 'Trending',
-    dashboard: 'Dashboard'
+    dashboard: 'Dashboard',
+    market_news: 'Market News',
+    market_data: 'Market Data'
   },
   profile: {
     edit_profile: 'Edit Profile',
@@ -155,6 +157,32 @@ export const en = {
     gst_number: 'GST Number',
     business_name: 'Business Name',
     business_address: 'Business Address'
+  },
+  marketNews: {
+    marketNews: 'Market News',
+    news: 'News',
+    weather: 'Weather',
+    recommendations: 'Recommendations',
+    analysis: 'Analysis',
+    readMore: 'Read More',
+    source: 'Source',
+    forecast: 'Forecast',
+    currentPrice: 'Current Price',
+    targetPrice: 'Target Price',
+    stopLoss: 'Stop Loss',
+    confidence: 'Confidence',
+    rationale: 'Rationale',
+    dailyMarketSummary: 'Daily Market Summary',
+    weeklyOutlook: 'Weekly Outlook',
+    monthlyOutlook: 'Monthly Outlook',
+    commodity: 'Commodity',
+    price: 'Price',
+    change: 'Change',
+    volume: 'Volume',
+    sentiment: 'Sentiment',
+    topPerformers: 'Top Performers',
+    worstPerformers: 'Worst Performers',
+    keyFactors: 'Key Factors'
   },
   messages: {
     success: {
