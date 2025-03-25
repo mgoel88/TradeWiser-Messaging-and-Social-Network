@@ -164,6 +164,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // User routes
+  app.get("/api/users", async (req, res) => {
+    try {
+      const users = await storage.listUsers();
+      return res.json({ users });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.get("/api/users/:id", async (req, res) => {
     try {
       const userId = parseInt(req.params.id);
