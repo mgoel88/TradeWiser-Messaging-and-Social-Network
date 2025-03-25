@@ -2,7 +2,8 @@ import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { 
   UserCircle, Building, CircleDot, Warehouse, 
-  Wheat, LineChart, Loader, MessageSquare, Newspaper
+  Wheat, LineChart, Loader, MessageSquare, Newspaper,
+  FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -139,6 +140,15 @@ const Sidebar = () => {
             >
               <MessageSquare className="text-primary w-5 h-5 mr-3" />
               <span>Messages</span>
+            </Button>
+          </Link>
+          <Link href="/contracts">
+            <Button
+              variant="ghost" 
+              className="flex items-center w-full justify-start px-4 py-3 rounded-none hover:bg-gray-50"
+            >
+              <FileText className="text-primary w-5 h-5 mr-3" />
+              <span>Contracts</span>
             </Button>
           </Link>
           <Link href="/market-news">
