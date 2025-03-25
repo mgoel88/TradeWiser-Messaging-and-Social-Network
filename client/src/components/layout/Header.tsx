@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLanguage } from "@/lib/i18n";
 import { LanguageSelector } from "@/components/layout/LanguageSelector";
+import { ConnectionStatus } from "@/components/notifications/ConnectionStatus";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -114,6 +115,7 @@ const Header = () => {
             <Link href="/market-news" className="p-2 text-gray-700 hover:text-primary rounded-full hover:bg-gray-100">
               <Newspaper className="h-5 w-5" />
             </Link>
+            <ConnectionStatus />
             <LanguageSelector />
             
             {isLoading ? (
