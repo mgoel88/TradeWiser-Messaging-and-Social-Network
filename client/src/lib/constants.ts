@@ -103,4 +103,4 @@ export const QUALITY_OPTIONS = [
 ];
 
 // App constants
-export const APP_NAME = "KrishiConnect";
+export const APP_NAME = "WizXConnect";
