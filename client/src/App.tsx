@@ -13,6 +13,7 @@ import Login from "@/pages/login";
 import Register from "@/pages/register";
 import Messages from "@/pages/messages";
 import Assets from "@/pages/assets";
+import MarketNews from "@/pages/market-news";
 import { useQuery } from "@tanstack/react-query";
 import Header from "./components/layout/Header";
 import Footer from "./components/layout/Footer";
@@ -52,6 +53,7 @@ function Router() {
       <Route path="/kyc" component={KYC} />
       <Route path="/messages" component={Messages} />
       <Route path="/assets" component={Assets} />
+      <Route path="/market-news" component={MarketNews} />
       <Route component={NotFound} />
     </Switch>
   );

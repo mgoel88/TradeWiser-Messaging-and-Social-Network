@@ -791,6 +791,253 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Market News (Reuters/MoneyControl-like) endpoints
+  app.get("/api/market-news", async (req, res) => {
+    try {
+      // In a real implementation, this would fetch from news APIs or databases
+      // For now, providing sample data for demonstration
+      const news = [
+        {
+          id: 1,
+          headline: "Wheat prices surge amidst rainfall shortage in Northern India",
+          summary: "Wheat futures saw a sharp increase as rainfall deficit in Punjab and Haryana raised concerns over yield. Analysts expect continued upward pressure on prices.",
+          content: "Wheat futures on the National Commodity Exchange surged 3.5% today, reaching ₹2,350 per quintal as rainfall deficits in key wheat-growing regions of Punjab and Haryana raised concerns over potential yield impacts for the upcoming rabi season.\n\nThe Indian Meteorological Department reported that the rainfall in October has been 35% below normal in these regions, potentially affecting the sowing operations for the winter crop. Commodity analysts from AgriWatch noted that if the dry conditions persist, we could see wheat prices climbing further in the coming weeks.\n\n\"Farmers are delaying sowing operations in anticipation of rainfall, which could compress the growing season and impact final yields,\" said Dr. Rajiv Sharma, agricultural economist at the Indian Agricultural Research Institute.",
+          source: "Reuters",
+          sourceUrl: "https://reuters.com/agriculture/wheat-prices-surge",
+          category: "grain",
+          region: "Punjab",
+          publishedAt: "2025-03-22T09:30:00Z",
+          imageUrl: "https://images.unsplash.com/photo-1574323347407-f5e1c5a9ec68",
+          tags: ["wheat", "rabi", "drought", "price rise"]
+        },
+        {
+          id: 2,
+          headline: "Government increases MSP for pulses to boost production",
+          summary: "Cabinet approves ₹500/quintal increase in Minimum Support Price for pulses to encourage farmers to grow more pulses amidst rising imports.",
+          content: "The Union Cabinet today approved an increase in the Minimum Support Price (MSP) for pulses by ₹500 per quintal for the 2025-26 crop year. The move aims to incentivize farmers to increase the area under pulse cultivation and reduce India's dependence on imports.\n\nThe MSP for moong has been set at ₹8,558 per quintal, while that for urad and tur has been increased to ₹7,800 and ₹7,600 per quintal respectively. This represents an average increase of 7.8% over the previous year's MSP.\n\n\"This decision will help increase domestic production of pulses and eventually reduce our import dependency,\" said the Agriculture Minister in a press statement. India currently imports about 15-20% of its pulse requirements, with significant volumes coming from Canada, Myanmar, and Australia.",
+          source: "MoneyControl",
+          sourceUrl: "https://moneycontrol.com/news/business/economy/government-increases-msp-for-pulses",
+          category: "pulse",
+          region: "Maharashtra",
+          publishedAt: "2025-03-21T14:15:00Z",
+          imageUrl: "https://images.unsplash.com/photo-1515543904419-b8c3f5bede14",
+          tags: ["pulses", "MSP", "government policy", "agriculture"]
+        },
+        {
+          id: 3,
+          headline: "Soybean processors facing margin pressure despite rising global demand",
+          summary: "Indian soybean processing industry struggles with capacity utilization as domestic prices remain elevated compared to international markets.",
+          content: "India's soybean processing industry is facing significant margin pressure despite rising global demand for soybean meal, primarily due to high domestic prices of the oilseed. Industry data shows that capacity utilization at processing units has dropped to 55% from 70% last year.\n\n\"The price differential between Indian and international soybean has made our meal exports uncompetitive,\" said Rajesh Agrawal, Chairman of the Soybean Processors Association of India (SOPA). Domestic soybean prices are currently trading at ₹4,120 per quintal, approximately 15% higher than international prices when adjusted for import duties and logistics costs.\n\nThe situation has been exacerbated by increased soybean production in Brazil and Argentina, which has kept global prices under pressure. However, Indian prices have remained firm due to lower domestic production following erratic monsoon rainfall in major growing regions of Madhya Pradesh and Maharashtra.",
+          source: "Financial Express",
+          sourceUrl: "https://financialexpress.com/market/commodities/soybean-processors-margin-pressure",
+          category: "oilseed",
+          region: "Madhya Pradesh",
+          publishedAt: "2025-03-20T16:45:00Z",
+          imageUrl: "https://images.unsplash.com/photo-1563431453052-32cea445d3b4",
+          tags: ["soybean", "processing", "exports", "price"]
+        },
+        {
+          id: 4,
+          headline: "Chana futures drop 2% on increased imports",
+          summary: "Chana futures on NCDEX fell as government allows pulse imports to control retail inflation.",
+          content: "Chana (chickpea) futures on the National Commodity and Derivatives Exchange (NCDEX) fell by over 2% today following the government's decision to allow duty-free imports of up to 400,000 tonnes of the pulse to control retail inflation.\n\nThe most-active Chana April contract on NCDEX was trading at ₹5,780 per quintal, down ₹120 or 2.03% from the previous close. Trading volumes surged to 42,350 lots as market participants rushed to adjust their positions following the announcement.\n\n\"This move is likely to increase domestic availability and cool down retail prices which have risen by nearly 15% over the past three months,\" said commodity analyst Vipul Sharma. The government has been actively managing pulse imports to balance the interests of consumers facing food inflation and farmers who benefit from higher prices.",
+          source: "Economic Times",
+          sourceUrl: "https://economictimes.com/markets/commodities/chana-futures-drop",
+          category: "pulse",
+          region: "Rajasthan",
+          publishedAt: "2025-03-19T11:30:00Z",
+          imageUrl: "https://images.unsplash.com/photo-1611575619367-628c2e8f2e4a",
+          tags: ["chana", "futures", "imports", "pulses"]
+        },
+        {
+          id: 5,
+          headline: "Record turmeric production expected in Telangana",
+          summary: "Turmeric output in Telangana projected to reach 5-year high, prices expected to moderate in coming months.",
+          content: "Telangana is set to witness record turmeric production this season, with output projected to reach a five-year high of approximately 195,000 tonnes, according to the state's agriculture department. Favorable weather conditions and increased area under cultivation are the primary drivers behind this bumper crop.\n\n\"We've seen nearly a 12% increase in area under turmeric cultivation this year, with farmers switching from cotton due to better price realization for turmeric in the previous season,\" explained K. Srinivas Rao, Director of the state's Agriculture Department.\n\nThe increased production is expected to moderate prices, which had risen to record highs of ₹17,500 per quintal earlier this year. Market analysts predict prices could settle around ₹12,000-13,000 per quintal once the new crop starts arriving in full swing by early April.",
+          source: "Reuters",
+          sourceUrl: "https://reuters.com/markets/commodities/record-turmeric-production-telangana",
+          category: "spice",
+          region: "Telangana",
+          publishedAt: "2025-03-18T13:20:00Z",
+          imageUrl: "https://images.unsplash.com/photo-1615485500704-8e990f9921ef",
+          tags: ["turmeric", "spices", "production", "telangana"]
+        }
+      ];
+      
+      return res.json({ news });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Weather updates endpoint
+  app.get("/api/weather", async (req, res) => {
+    try {
+      // This would typically connect to a weather API
+      // Providing sample data for demonstration
+      const weather = [
+        {
+          location: "Bikaner",
+          state: "Rajasthan",
+          temperature: 32,
+          condition: "Clear",
+          humidity: 45,
+          windSpeed: 12,
+          forecast: [
+            { day: "Tomorrow", temperature: 33, condition: "Clear" },
+            { day: "Day 2", temperature: 34, condition: "Clear" },
+            { day: "Day 3", temperature: 33, condition: "Partly Cloudy" }
+          ]
+        },
+        {
+          location: "Indore",
+          state: "Madhya Pradesh",
+          temperature: 28,
+          condition: "Partly Cloudy",
+          humidity: 60,
+          windSpeed: 8,
+          forecast: [
+            { day: "Tomorrow", temperature: 29, condition: "Partly Cloudy" },
+            { day: "Day 2", temperature: 30, condition: "Clear" },
+            { day: "Day 3", temperature: 29, condition: "Clear" }
+          ]
+        },
+        {
+          location: "Guntur",
+          state: "Andhra Pradesh",
+          temperature: 30,
+          condition: "Rain",
+          humidity: 75,
+          windSpeed: 15,
+          forecast: [
+            { day: "Tomorrow", temperature: 29, condition: "Showers" },
+            { day: "Day 2", temperature: 28, condition: "Showers" },
+            { day: "Day 3", temperature: 30, condition: "Partly Cloudy" }
+          ],
+          alerts: ["Heavy rainfall expected in the next 48 hours"]
+        }
+      ];
+      
+      return res.json({ weather });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Market recommendations endpoint
+  app.get("/api/recommendations", async (req, res) => {
+    try {
+      // In a real implementation, this would be generated based on algorithms and data analysis
+      // Providing sample data for demonstration
+      const recommendations = [
+        {
+          id: 1,
+          commodity: "Wheat",
+          type: "buy",
+          description: "Buy opportunity based on expected yield reduction due to rainfall shortage",
+          currentPrice: 2350,
+          targetPrice: 2600,
+          stopLoss: 2250,
+          timestamp: "2025-03-22T10:00:00Z",
+          region: "Punjab",
+          confidence: "high",
+          rationale: "Weather patterns and reduced sowing area indicate potential supply constraints"
+        },
+        {
+          id: 2,
+          commodity: "Soybean",
+          type: "sell",
+          description: "Consider selling soybean with international prices trending lower",
+          currentPrice: 4120,
+          targetPrice: 3900,
+          stopLoss: 4200,
+          timestamp: "2025-03-21T15:30:00Z",
+          region: "Madhya Pradesh",
+          confidence: "medium",
+          rationale: "Increased global production and lower export competitiveness"
+        },
+        {
+          id: 3,
+          commodity: "Chana",
+          type: "hold",
+          description: "Hold positions as market adjusts to new import policy",
+          currentPrice: 5780,
+          targetPrice: 5700,
+          stopLoss: null,
+          timestamp: "2025-03-20T09:15:00Z",
+          region: "Rajasthan",
+          confidence: "medium",
+          rationale: "Initial price reaction to import news may be overdone"
+        },
+        {
+          id: 4,
+          commodity: "Turmeric",
+          type: "alert",
+          description: "Prepare for potential selling opportunity as new crop arrives",
+          currentPrice: 15200,
+          targetPrice: 12800,
+          stopLoss: null,
+          timestamp: "2025-03-19T11:45:00Z",
+          region: "Telangana",
+          confidence: "high",
+          rationale: "Record production expected to pressure prices in coming weeks"
+        },
+        {
+          id: 5,
+          commodity: "Mustard Seed",
+          type: "buy",
+          description: "Accumulate on dips with positive long-term outlook",
+          currentPrice: 6340,
+          targetPrice: 6800,
+          stopLoss: 6100,
+          timestamp: "2025-03-18T14:30:00Z",
+          region: "Haryana",
+          confidence: "medium",
+          rationale: "Growing demand for mustard oil and expected export opportunities"
+        }
+      ];
+      
+      return res.json({ recommendations });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Market analysis endpoint
+  app.get("/api/market-analysis", async (req, res) => {
+    try {
+      // This would normally involve complex data processing and analysis
+      // Providing sample data for demonstration
+      const analysis = {
+        daily: [
+          { commodity: "Wheat", price: 2350, change: 2.4, volume: 1250, sentiment: 70 },
+          { commodity: "Soybean", price: 4120, change: -1.8, volume: 980, sentiment: 40 },
+          { commodity: "Chana", price: 5780, change: 0.5, volume: 750, sentiment: 55 },
+          { commodity: "Turmeric", price: 15200, change: -3.2, volume: 320, sentiment: 30 },
+          { commodity: "Mustard Seed", price: 6340, change: 1.2, volume: 540, sentiment: 65 }
+        ],
+        weekly: {
+          summary: "Grain prices trending higher, oilseeds mixed, pulses steady",
+          topPerformers: ["Wheat", "Barley", "Mustard Seed"],
+          worstPerformers: ["Turmeric", "Soybean", "Cumin"]
+        },
+        monthly: {
+          summary: "Agricultural commodities showing seasonal patterns with rabi harvest approaching",
+          outlook: "Moderate price pressure expected as new harvests reach markets, but lower-than-expected yields may provide support",
+          keyFactors: ["Rainfall deficit in northern states", "Export policy changes", "MSP announcements"]
+        }
+      };
+      
+      return res.json({ analysis });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
