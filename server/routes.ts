@@ -14,7 +14,12 @@ import {
   insertKycRequestSchema,
   insertUserCircleSchema,
   insertUserCommoditySchema,
-  kycRequestFormSchema
+  kycRequestFormSchema,
+  insertListingSchema, 
+  insertOfferSchema, 
+  insertTradeSchema,
+  listingFormSchema,
+  offerFormSchema
 } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
@@ -1032,6 +1037,778 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       return res.json({ analysis });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Marketplace Listing routes
+  app.get("/api/listings", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string);
+      const offset = parseInt(req.query.offset as string);
+      
+      const listings = await storage.listListings(
+        isNaN(limit) ? undefined : limit,
+        isNaN(offset) ? undefined : offset
+      );
+      
+      // Enrich listing data with commodity, circle, and user info
+      const enrichedListings = await Promise.all(
+        listings.map(async (listing) => {
+          const commodity = await storage.getCommodity(listing.commodityId);
+          const circle = await storage.getCircle(listing.circleId);
+          const user = await storage.getUser(listing.userId);
+          
+          return {
+            ...listing,
+            commodity: commodity ? {
+              id: commodity.id,
+              name: commodity.name,
+              icon: commodity.icon,
+              category: commodity.category
+            } : null,
+            circle: circle ? {
+              id: circle.id,
+              name: circle.name,
+              state: circle.state,
+              district: circle.district
+            } : null,
+            user: user ? {
+              id: user.id,
+              name: user.name,
+              avatar: user.avatar,
+              kycVerified: user.kycVerified,
+              userType: user.userType
+            } : null
+          };
+        })
+      );
+      
+      return res.json({ listings: enrichedListings });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+  
+  app.get("/api/listings/active", async (req, res) => {
+    try {
+      const listingType = req.query.type as string || undefined;
+      const listings = await storage.getActiveListings(listingType);
+      
+      // Enrich listing data with commodity, circle, and user info
+      const enrichedListings = await Promise.all(
+        listings.map(async (listing) => {
+          const commodity = await storage.getCommodity(listing.commodityId);
+          const circle = await storage.getCircle(listing.circleId);
+          const user = await storage.getUser(listing.userId);
+          
+          return {
+            ...listing,
+            commodity: commodity ? {
+              id: commodity.id,
+              name: commodity.name,
+              icon: commodity.icon,
+              category: commodity.category
+            } : null,
+            circle: circle ? {
+              id: circle.id,
+              name: circle.name,
+              state: circle.state,
+              district: circle.district
+            } : null,
+            user: user ? {
+              id: user.id,
+              name: user.name,
+              avatar: user.avatar,
+              kycVerified: user.kycVerified,
+              userType: user.userType
+            } : null
+          };
+        })
+      );
+      
+      return res.json({ listings: enrichedListings });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+  
+  app.get("/api/listings/search", async (req, res) => {
+    try {
+      const commodityId = parseInt(req.query.commodityId as string);
+      const circleId = parseInt(req.query.circleId as string);
+      const minPrice = parseFloat(req.query.minPrice as string);
+      const maxPrice = parseFloat(req.query.maxPrice as string);
+      const listingType = req.query.type as string;
+      const quality = req.query.quality as string;
+      
+      const searchParams: any = {};
+      
+      if (!isNaN(commodityId)) searchParams.commodityId = commodityId;
+      if (!isNaN(circleId)) searchParams.circleId = circleId;
+      if (!isNaN(minPrice)) searchParams.minPrice = minPrice;
+      if (!isNaN(maxPrice)) searchParams.maxPrice = maxPrice;
+      if (listingType) searchParams.listingType = listingType;
+      if (quality) searchParams.quality = quality;
+      
+      const listings = await storage.searchListings(searchParams);
+      
+      // Enrich listing data with commodity, circle, and user info
+      const enrichedListings = await Promise.all(
+        listings.map(async (listing) => {
+          const commodity = await storage.getCommodity(listing.commodityId);
+          const circle = await storage.getCircle(listing.circleId);
+          const user = await storage.getUser(listing.userId);
+          
+          return {
+            ...listing,
+            commodity: commodity ? {
+              id: commodity.id,
+              name: commodity.name,
+              icon: commodity.icon,
+              category: commodity.category
+            } : null,
+            circle: circle ? {
+              id: circle.id,
+              name: circle.name,
+              state: circle.state,
+              district: circle.district
+            } : null,
+            user: user ? {
+              id: user.id,
+              name: user.name,
+              avatar: user.avatar,
+              kycVerified: user.kycVerified,
+              userType: user.userType
+            } : null
+          };
+        })
+      );
+      
+      return res.json({ listings: enrichedListings });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+  
+  app.get("/api/listings/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid listing ID" });
+      }
+      
+      const listing = await storage.getListing(id);
+      if (!listing) {
+        return res.status(404).json({ message: "Listing not found" });
+      }
+      
+      // Get commodity, circle, and user details
+      const commodity = await storage.getCommodity(listing.commodityId);
+      const circle = await storage.getCircle(listing.circleId);
+      const user = await storage.getUser(listing.userId);
+      
+      // Get offers for this listing
+      const offers = await storage.getOffersByListing(id);
+      
+      return res.json({
+        listing,
+        commodity: commodity ? {
+          id: commodity.id,
+          name: commodity.name,
+          icon: commodity.icon,
+          category: commodity.category
+        } : null,
+        circle: circle ? {
+          id: circle.id,
+          name: circle.name,
+          state: circle.state,
+          district: circle.district
+        } : null,
+        user: user ? {
+          id: user.id,
+          name: user.name,
+          avatar: user.avatar,
+          kycVerified: user.kycVerified,
+          userType: user.userType
+        } : null,
+        offers: offers.length
+      });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+  
+  app.post("/api/listings", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const data = listingFormSchema.parse({
+        ...req.body,
+        userId,
+        status: 'active' // Default status for new listings
+      });
+      
+      const newListing = await storage.createListing(data);
+      return res.status(201).json({ listing: newListing });
+    } catch (err) {
+      return handleZodError(err, res);
+    }
+  });
+  
+  app.patch("/api/listings/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const listingId = parseInt(req.params.id);
+      
+      if (isNaN(listingId)) {
+        return res.status(400).json({ message: "Invalid listing ID" });
+      }
+      
+      const listing = await storage.getListing(listingId);
+      if (!listing) {
+        return res.status(404).json({ message: "Listing not found" });
+      }
+      
+      // Check if user owns this listing
+      if (listing.userId !== userId) {
+        return res.status(403).json({ message: "Not authorized to update this listing" });
+      }
+      
+      // Only update allowed fields
+      const allowedFields = [
+        "pricePerUnit", 
+        "quantity", 
+        "minQuantity", 
+        "quality", 
+        "availableFrom", 
+        "availableTo", 
+        "description",
+        "status"
+      ];
+      
+      const updates: Record<string, any> = {};
+      
+      for (const field of allowedFields) {
+        if (req.body[field] !== undefined) {
+          updates[field] = req.body[field];
+        }
+      }
+      
+      const updatedListing = await storage.updateListing(listingId, updates);
+      return res.json({ listing: updatedListing });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+  
+  app.delete("/api/listings/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const listingId = parseInt(req.params.id);
+      
+      if (isNaN(listingId)) {
+        return res.status(400).json({ message: "Invalid listing ID" });
+      }
+      
+      const listing = await storage.getListing(listingId);
+      if (!listing) {
+        return res.status(404).json({ message: "Listing not found" });
+      }
+      
+      // Check if user owns this listing
+      if (listing.userId !== userId) {
+        return res.status(403).json({ message: "Not authorized to delete this listing" });
+      }
+      
+      const success = await storage.deleteListing(listingId);
+      if (!success) {
+        return res.status(500).json({ message: "Failed to delete listing" });
+      }
+      
+      return res.json({ message: "Listing deleted successfully" });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+  
+  // Marketplace Offer routes
+  app.get("/api/offers", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const offers = await storage.getUserOffers(userId);
+      
+      // Enrich offer data
+      const enrichedOffers = await Promise.all(
+        offers.map(async (offer) => {
+          const listing = await storage.getListing(offer.listingId);
+          const buyer = await storage.getUser(offer.buyerId);
+          
+          let commodity = null;
+          let circle = null;
+          let seller = null;
+          
+          if (listing) {
+            commodity = await storage.getCommodity(listing.commodityId);
+            circle = await storage.getCircle(listing.circleId);
+            seller = await storage.getUser(listing.userId);
+          }
+          
+          return {
+            ...offer,
+            listing,
+            buyer,
+            commodity: commodity ? {
+              id: commodity.id,
+              name: commodity.name,
+              icon: commodity.icon
+            } : null,
+            circle: circle ? {
+              id: circle.id,
+              name: circle.name
+            } : null,
+            seller
+          };
+        })
+      );
+      
+      return res.json({ offers: enrichedOffers });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+  
+  app.get("/api/offers/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const offerId = parseInt(req.params.id);
+      
+      if (isNaN(offerId)) {
+        return res.status(400).json({ message: "Invalid offer ID" });
+      }
+      
+      const offer = await storage.getOffer(offerId);
+      if (!offer) {
+        return res.status(404).json({ message: "Offer not found" });
+      }
+      
+      // Get the listing for this offer
+      const listing = await storage.getListing(offer.listingId);
+      
+      // Check if user is involved in this offer (either as buyer or seller)
+      if (offer.buyerId !== userId && (!listing || listing.userId !== userId)) {
+        return res.status(403).json({ message: "Not authorized to view this offer" });
+      }
+      
+      // Get additional details
+      const buyer = await storage.getUser(offer.buyerId);
+      
+      let commodity = null;
+      let circle = null;
+      let seller = null;
+      
+      if (listing) {
+        commodity = await storage.getCommodity(listing.commodityId);
+        circle = await storage.getCircle(listing.circleId);
+        seller = await storage.getUser(listing.userId);
+      }
+      
+      return res.json({
+        offer,
+        listing,
+        buyer,
+        commodity: commodity ? {
+          id: commodity.id,
+          name: commodity.name,
+          icon: commodity.icon
+        } : null,
+        circle: circle ? {
+          id: circle.id,
+          name: circle.name
+        } : null,
+        seller
+      });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+  
+  app.post("/api/offers", isAuthenticated, async (req, res) => {
+    try {
+      const buyerId = (req.user as any).id;
+      const data = offerFormSchema.parse({
+        ...req.body,
+        buyerId,
+        status: 'pending' // Default status for new offers
+      });
+      
+      // Verify the listing exists and is active
+      const listing = await storage.getListing(data.listingId);
+      if (!listing) {
+        return res.status(404).json({ message: "Listing not found" });
+      }
+      
+      if (listing.status !== 'active') {
+        return res.status(400).json({ message: "Listing is not active" });
+      }
+      
+      // Buyers can't submit offers to their own listings
+      if (listing.userId === buyerId) {
+        return res.status(400).json({ message: "Cannot submit offer to your own listing" });
+      }
+      
+      // Check if the quantity is valid
+      if (data.quantity > listing.quantity) {
+        return res.status(400).json({ message: "Offer quantity exceeds available quantity" });
+      }
+      
+      if (listing.minQuantity && data.quantity < listing.minQuantity) {
+        return res.status(400).json({ 
+          message: `Minimum quantity required is ${listing.minQuantity}` 
+        });
+      }
+      
+      // Create the offer
+      const newOffer = await storage.createOffer({
+        ...data,
+        totalAmount: data.quantity * (data.pricePerUnit || listing.pricePerUnit)
+      });
+      
+      return res.status(201).json({ offer: newOffer });
+    } catch (err) {
+      return handleZodError(err, res);
+    }
+  });
+  
+  app.patch("/api/offers/:id/status", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const offerId = parseInt(req.params.id);
+      
+      if (isNaN(offerId)) {
+        return res.status(400).json({ message: "Invalid offer ID" });
+      }
+      
+      const { status } = req.body;
+      if (!status || !['accepted', 'rejected', 'cancelled'].includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+      
+      const offer = await storage.getOffer(offerId);
+      if (!offer) {
+        return res.status(404).json({ message: "Offer not found" });
+      }
+      
+      // Get the listing for this offer
+      const listing = await storage.getListing(offer.listingId);
+      if (!listing) {
+        return res.status(404).json({ message: "Associated listing not found" });
+      }
+      
+      // Check if user is allowed to update this offer's status
+      if (status === 'cancelled') {
+        // Only the buyer can cancel their offer
+        if (offer.buyerId !== userId) {
+          return res.status(403).json({ message: "Only the buyer can cancel this offer" });
+        }
+      } else { // 'accepted' or 'rejected'
+        // Only the seller can accept or reject an offer
+        if (listing.userId !== userId) {
+          return res.status(403).json({ message: "Only the seller can accept or reject offers" });
+        }
+      }
+      
+      // Update the offer status
+      const updatedOffer = await storage.updateOfferStatus(offerId, status);
+      
+      // If offer is accepted, create a trade
+      if (status === 'accepted') {
+        const trade = await storage.createTrade({
+          offerId: offer.id,
+          listingId: listing.id,
+          sellerId: listing.userId,
+          buyerId: offer.buyerId,
+          quantity: offer.quantity,
+          pricePerUnit: offer.pricePerUnit || listing.pricePerUnit,
+          totalAmount: offer.totalAmount,
+          status: 'pending',
+          scheduledDate: new Date(),
+          actualDate: null,
+          paymentMethod: null,
+          paymentStatus: 'pending',
+          deliveryMethod: null,
+          deliveryStatus: 'pending',
+          buyerRating: null,
+          buyerReview: null,
+          sellerRating: null,
+          sellerReview: null
+        });
+        
+        return res.json({ offer: updatedOffer, trade });
+      }
+      
+      return res.json({ offer: updatedOffer });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+  
+  // Trade routes
+  app.get("/api/trades", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const role = req.query.role as string || undefined;
+      
+      const trades = await storage.getUserTrades(userId, role);
+      
+      // Enrich trade data
+      const enrichedTrades = await Promise.all(
+        trades.map(async (trade) => {
+          const listing = await storage.getListing(trade.listingId);
+          const offer = await storage.getOffer(trade.offerId);
+          const buyer = await storage.getUser(trade.buyerId);
+          const seller = await storage.getUser(trade.sellerId);
+          
+          let commodity = null;
+          let circle = null;
+          
+          if (listing) {
+            commodity = await storage.getCommodity(listing.commodityId);
+            circle = await storage.getCircle(listing.circleId);
+          }
+          
+          return {
+            ...trade,
+            listing,
+            offer,
+            buyer: buyer ? {
+              id: buyer.id,
+              name: buyer.name,
+              avatar: buyer.avatar,
+              kycVerified: buyer.kycVerified
+            } : null,
+            seller: seller ? {
+              id: seller.id,
+              name: seller.name,
+              avatar: seller.avatar,
+              kycVerified: seller.kycVerified
+            } : null,
+            commodity: commodity ? {
+              id: commodity.id,
+              name: commodity.name,
+              icon: commodity.icon
+            } : null,
+            circle: circle ? {
+              id: circle.id,
+              name: circle.name
+            } : null
+          };
+        })
+      );
+      
+      return res.json({ trades: enrichedTrades });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+  
+  app.get("/api/trades/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const tradeId = parseInt(req.params.id);
+      
+      if (isNaN(tradeId)) {
+        return res.status(400).json({ message: "Invalid trade ID" });
+      }
+      
+      const trade = await storage.getTrade(tradeId);
+      if (!trade) {
+        return res.status(404).json({ message: "Trade not found" });
+      }
+      
+      // Check if user is involved in this trade
+      if (trade.buyerId !== userId && trade.sellerId !== userId) {
+        return res.status(403).json({ message: "Not authorized to view this trade" });
+      }
+      
+      // Get additional details
+      const listing = await storage.getListing(trade.listingId);
+      const offer = await storage.getOffer(trade.offerId);
+      const buyer = await storage.getUser(trade.buyerId);
+      const seller = await storage.getUser(trade.sellerId);
+      
+      let commodity = null;
+      let circle = null;
+      
+      if (listing) {
+        commodity = await storage.getCommodity(listing.commodityId);
+        circle = await storage.getCircle(listing.circleId);
+      }
+      
+      return res.json({
+        trade,
+        listing,
+        offer,
+        buyer: buyer ? {
+          id: buyer.id,
+          name: buyer.name,
+          avatar: buyer.avatar,
+          kycVerified: buyer.kycVerified
+        } : null,
+        seller: seller ? {
+          id: seller.id,
+          name: seller.name,
+          avatar: seller.avatar,
+          kycVerified: seller.kycVerified
+        } : null,
+        commodity: commodity ? {
+          id: commodity.id,
+          name: commodity.name,
+          icon: commodity.icon
+        } : null,
+        circle: circle ? {
+          id: circle.id,
+          name: circle.name
+        } : null
+      });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+  
+  app.patch("/api/trades/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const tradeId = parseInt(req.params.id);
+      
+      if (isNaN(tradeId)) {
+        return res.status(400).json({ message: "Invalid trade ID" });
+      }
+      
+      const trade = await storage.getTrade(tradeId);
+      if (!trade) {
+        return res.status(404).json({ message: "Trade not found" });
+      }
+      
+      // Check if user is involved in this trade
+      if (trade.buyerId !== userId && trade.sellerId !== userId) {
+        return res.status(403).json({ message: "Not authorized to update this trade" });
+      }
+      
+      // Only allow updating certain fields based on user role
+      const updates: Record<string, any> = {};
+      
+      if (trade.buyerId === userId) {
+        // Fields the buyer can update
+        const buyerFields = [
+          "paymentMethod", 
+          "scheduledDate"
+        ];
+        
+        for (const field of buyerFields) {
+          if (req.body[field] !== undefined) {
+            updates[field] = req.body[field];
+          }
+        }
+      }
+      
+      if (trade.sellerId === userId) {
+        // Fields the seller can update
+        const sellerFields = [
+          "deliveryMethod", 
+          "scheduledDate"
+        ];
+        
+        for (const field of sellerFields) {
+          if (req.body[field] !== undefined) {
+            updates[field] = req.body[field];
+          }
+        }
+      }
+      
+      // Both buyer and seller can update these fields
+      if (req.body.status !== undefined && ["completed", "cancelled"].includes(req.body.status)) {
+        updates.status = req.body.status;
+        
+        // If trade is completed, update the listing status
+        if (req.body.status === "completed") {
+          const listing = await storage.getListing(trade.listingId);
+          
+          if (listing) {
+            // Check if the entire quantity has been fulfilled
+            if (trade.quantity >= listing.quantity) {
+              await storage.updateListingStatus(listing.id, "completed");
+            } else {
+              // Update remaining quantity
+              await storage.updateListing(listing.id, {
+                quantity: listing.quantity - trade.quantity
+              });
+            }
+          }
+        }
+      }
+      
+      const updatedTrade = await storage.updateTrade(tradeId, updates);
+      return res.json({ trade: updatedTrade });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+  
+  app.post("/api/trades/:id/rating", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const tradeId = parseInt(req.params.id);
+      
+      if (isNaN(tradeId)) {
+        return res.status(400).json({ message: "Invalid trade ID" });
+      }
+      
+      const { rating, review } = req.body;
+      if (typeof rating !== 'number' || rating < 1 || rating > 5) {
+        return res.status(400).json({ message: "Rating must be a number between 1 and 5" });
+      }
+      
+      const trade = await storage.getTrade(tradeId);
+      if (!trade) {
+        return res.status(404).json({ message: "Trade not found" });
+      }
+      
+      // Check if user is involved in this trade
+      let role: string;
+      if (trade.buyerId === userId) {
+        role = 'buyer';
+      } else if (trade.sellerId === userId) {
+        role = 'seller';
+      } else {
+        return res.status(403).json({ message: "Not authorized to rate this trade" });
+      }
+      
+      // Check if trade is completed
+      if (trade.status !== 'completed') {
+        return res.status(400).json({ message: "Can only rate completed trades" });
+      }
+      
+      // Check if user has already rated
+      if ((role === 'buyer' && trade.buyerRating) || (role === 'seller' && trade.sellerRating)) {
+        return res.status(400).json({ message: "You have already rated this trade" });
+      }
+      
+      const updatedTrade = await storage.updateTradeRating(tradeId, rating, review || '', role);
+      return res.json({ trade: updatedTrade });
     } catch (err) {
       console.error(err);
       return res.status(500).json({ message: "Internal server error" });

@@ -8,7 +8,10 @@ import {
   userCommodities, UserCommodity, InsertUserCommodity,
   connections, Connection, InsertConnection,
   posts, Post, InsertPost,
-  kycRequests, KycRequest, InsertKycRequest
+  kycRequests, KycRequest, InsertKycRequest,
+  listings, Listing, InsertListing,
+  offers, Offer, InsertOffer,
+  trades, Trade, InsertTrade
 } from "@shared/schema";
 
 import { db } from "./db";
