@@ -1,4 +1,5 @@
-import { pgTable, text, serial, integer, boolean, jsonb, timestamp, real, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, jsonb, timestamp, real, varchar, date } from "drizzle-orm/pg-core";
+import { pgEnum } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { nanoid } from "nanoid";
@@ -125,6 +126,74 @@ export const kycRequests = pgTable("kyc_requests", {
   createdAt: timestamp("created_at").defaultNow()
 });
 
+// Listing type enum
+export const listingTypeEnum = pgEnum('listing_type', ['sell', 'buy']);
+
+// Listing status enum
+export const listingStatusEnum = pgEnum('listing_status', ['active', 'completed', 'cancelled', 'expired']);
+
+// Trade status enum
+export const tradeStatusEnum = pgEnum('trade_status', ['pending', 'accepted', 'rejected', 'completed', 'cancelled']);
+
+// Marketplace listings
+export const listings = pgTable("listings", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  commodityId: integer("commodity_id").notNull(),
+  circleId: integer("circle_id").notNull(),
+  listingType: listingTypeEnum("listing_type").notNull(), // sell or buy
+  quantity: integer("quantity").notNull(), // in quintals
+  pricePerUnit: integer("price_per_unit").notNull(), // in INR per quintal
+  minQuantity: integer("min_quantity"), // minimum order quantity
+  quality: text("quality").notNull(),
+  description: text("description"),
+  deliveryMethod: text("delivery_method").notNull(), // pickup, delivery, negotiable
+  deliveryLocation: text("delivery_location"),
+  availableFrom: date("available_from").notNull(),
+  availableTo: date("available_to").notNull(),
+  images: text("images").array(),
+  status: listingStatusEnum("status").notNull().default('active'),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+
+// Trade offers
+export const offers = pgTable("offers", {
+  id: serial("id").primaryKey(),
+  listingId: integer("listing_id").notNull(),
+  buyerId: integer("buyer_id").notNull(),
+  sellerId: integer("seller_id").notNull(),
+  quantity: integer("quantity").notNull(),
+  pricePerUnit: integer("price_per_unit").notNull(),
+  totalAmount: integer("total_amount").notNull(),
+  message: text("message"),
+  status: tradeStatusEnum("status").notNull().default('pending'),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+
+// Completed trades
+export const trades = pgTable("trades", {
+  id: serial("id").primaryKey(),
+  offerId: integer("offer_id").notNull().unique(),
+  listingId: integer("listing_id").notNull(),
+  buyerId: integer("buyer_id").notNull(),
+  sellerId: integer("seller_id").notNull(),
+  commodityId: integer("commodity_id").notNull(),
+  quantity: integer("quantity").notNull(),
+  pricePerUnit: integer("price_per_unit").notNull(),
+  totalAmount: integer("total_amount").notNull(),
+  paymentStatus: text("payment_status").notNull().default("pending"), // pending, completed
+  deliveryStatus: text("delivery_status").notNull().default("pending"), // pending, in_transit, delivered
+  buyerRating: integer("buyer_rating"),
+  sellerRating: integer("seller_rating"),
+  buyerReview: text("buyer_review"),
+  sellerReview: text("seller_review"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
 export const insertCircleSchema = createInsertSchema(circles).omit({ id: true });
@@ -136,6 +205,9 @@ export const insertUserCommoditySchema = createInsertSchema(userCommodities).omi
 export const insertConnectionSchema = createInsertSchema(connections).omit({ id: true });
 export const insertPostSchema = createInsertSchema(posts).omit({ id: true });
 export const insertKycRequestSchema = createInsertSchema(kycRequests).omit({ id: true });
+export const insertListingSchema = createInsertSchema(listings).omit({ id: true });
+export const insertOfferSchema = createInsertSchema(offers).omit({ id: true });
+export const insertTradeSchema = createInsertSchema(trades).omit({ id: true });
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -148,6 +220,9 @@ export type InsertUserCommodity = z.infer<typeof insertUserCommoditySchema>;
 export type InsertConnection = z.infer<typeof insertConnectionSchema>;
 export type InsertPost = z.infer<typeof insertPostSchema>;
 export type InsertKycRequest = z.infer<typeof insertKycRequestSchema>;
+export type InsertListing = z.infer<typeof insertListingSchema>;
+export type InsertOffer = z.infer<typeof insertOfferSchema>;
+export type InsertTrade = z.infer<typeof insertTradeSchema>;
 
 export type User = typeof users.$inferSelect;
 export type Circle = typeof circles.$inferSelect;
@@ -159,6 +234,9 @@ export type UserCommodity = typeof userCommodities.$inferSelect;
 export type Connection = typeof connections.$inferSelect;
 export type Post = typeof posts.$inferSelect;
 export type KycRequest = typeof kycRequests.$inferSelect;
+export type Listing = typeof listings.$inferSelect;
+export type Offer = typeof offers.$inferSelect;
+export type Trade = typeof trades.$inferSelect;
 
 // Extended Schemas for form validation
 export const registerUserSchema = insertUserSchema.extend({
@@ -180,6 +258,28 @@ export const kycRequestFormSchema = insertKycRequestSchema.extend({
   path: ["idNumberConfirm"],
 });
 
+export const listingFormSchema = insertListingSchema.extend({
+  availableFrom: z.coerce.date(),
+  availableTo: z.coerce.date(),
+  listingType: z.enum(['sell', 'buy']),
+  status: z.enum(['active', 'completed', 'cancelled', 'expired']).default('active')
+}).refine((data: any) => {
+  return data.availableFrom <= data.availableTo;
+}, {
+  message: "Available to date must be after available from date",
+  path: ["availableTo"],
+});
+
+export const offerFormSchema = insertOfferSchema.extend({
+  confirmQuantity: z.number(),
+  status: z.enum(['pending', 'accepted', 'rejected', 'completed', 'cancelled']).default('pending')
+}).refine(data => data.quantity === data.confirmQuantity, {
+  message: "Quantities do not match",
+  path: ["confirmQuantity"],
+});
+
 export type RegisterUserInput = z.infer<typeof registerUserSchema>;
 export type UserLoginInput = z.infer<typeof userLoginSchema>;
 export type KycRequestFormInput = z.infer<typeof kycRequestFormSchema>;
+export type ListingFormInput = z.infer<typeof listingFormSchema>;
+export type OfferFormInput = z.infer<typeof offerFormSchema>;

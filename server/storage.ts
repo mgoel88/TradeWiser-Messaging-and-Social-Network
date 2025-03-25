@@ -97,6 +97,43 @@ export interface IStorage {
   updateKycRequestStatus(id: number, status: string): Promise<KycRequest | undefined>;
   listKycRequests(): Promise<KycRequest[]>;
   getPendingKycRequests(): Promise<KycRequest[]>;
+  
+  // Marketplace Listing operations
+  getListing(id: number): Promise<Listing | undefined>;
+  createListing(listing: InsertListing): Promise<Listing>;
+  updateListing(id: number, listing: Partial<Listing>): Promise<Listing | undefined>;
+  updateListingStatus(id: number, status: string): Promise<Listing | undefined>;
+  deleteListing(id: number): Promise<boolean>;
+  listListings(limit?: number, offset?: number): Promise<Listing[]>;
+  getUserListings(userId: number): Promise<Listing[]>;
+  getCircleListings(circleId: number): Promise<Listing[]>;
+  getCommodityListings(commodityId: number): Promise<Listing[]>;
+  getActiveListings(listingType?: string): Promise<Listing[]>;
+  searchListings(params: {
+    commodityId?: number, 
+    circleId?: number, 
+    minPrice?: number, 
+    maxPrice?: number, 
+    listingType?: string,
+    quality?: string
+  }): Promise<Listing[]>;
+
+  // Marketplace Offer operations
+  getOffer(id: number): Promise<Offer | undefined>;
+  createOffer(offer: InsertOffer): Promise<Offer>;
+  updateOfferStatus(id: number, status: string): Promise<Offer | undefined>;
+  getOffersByListing(listingId: number): Promise<Offer[]>;
+  getOffersByBuyer(buyerId: number): Promise<Offer[]>;
+  getOffersBySeller(sellerId: number): Promise<Offer[]>;
+  getUserOffers(userId: number): Promise<Offer[]>;
+  
+  // Trade operations
+  getTrade(id: number): Promise<Trade | undefined>;
+  createTrade(trade: InsertTrade): Promise<Trade>;
+  updateTrade(id: number, trade: Partial<Trade>): Promise<Trade | undefined>;
+  getUserTrades(userId: number, role?: string): Promise<Trade[]>;
+  getTradesByStatus(status: string): Promise<Trade[]>;
+  updateTradeRating(id: number, rating: number, review: string, role: string): Promise<Trade | undefined>;
 }
 
 // Database storage implementation
@@ -571,6 +608,268 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(kycRequests)
       .where(eq(kycRequests.status, "pending"));
+  }
+
+  // Marketplace Listing operations
+  async getListing(id: number): Promise<Listing | undefined> {
+    const [listing] = await db
+      .select()
+      .from(listings)
+      .where(eq(listings.id, id));
+    return listing || undefined;
+  }
+
+  async createListing(listing: InsertListing): Promise<Listing> {
+    const [newListing] = await db
+      .insert(listings)
+      .values(listing)
+      .returning();
+    return newListing;
+  }
+
+  async updateListing(id: number, listing: Partial<Listing>): Promise<Listing | undefined> {
+    const [updatedListing] = await db
+      .update(listings)
+      .set(listing)
+      .where(eq(listings.id, id))
+      .returning();
+    return updatedListing || undefined;
+  }
+
+  async updateListingStatus(id: number, status: string): Promise<Listing | undefined> {
+    const [updatedListing] = await db
+      .update(listings)
+      .set({ status })
+      .where(eq(listings.id, id))
+      .returning();
+    return updatedListing || undefined;
+  }
+
+  async deleteListing(id: number): Promise<boolean> {
+    const result = await db
+      .delete(listings)
+      .where(eq(listings.id, id));
+    return !!result.rowCount && result.rowCount > 0;
+  }
+
+  async listListings(limit?: number, offset?: number): Promise<Listing[]> {
+    let query = db.select().from(listings);
+    
+    if (limit) {
+      query = query.limit(limit);
+    }
+    
+    if (offset) {
+      query = query.offset(offset);
+    }
+    
+    return await query;
+  }
+
+  async getUserListings(userId: number): Promise<Listing[]> {
+    return await db
+      .select()
+      .from(listings)
+      .where(eq(listings.userId, userId));
+  }
+
+  async getCircleListings(circleId: number): Promise<Listing[]> {
+    return await db
+      .select()
+      .from(listings)
+      .where(eq(listings.circleId, circleId));
+  }
+
+  async getCommodityListings(commodityId: number): Promise<Listing[]> {
+    return await db
+      .select()
+      .from(listings)
+      .where(eq(listings.commodityId, commodityId));
+  }
+
+  async getActiveListings(listingType?: string): Promise<Listing[]> {
+    let query = db
+      .select()
+      .from(listings)
+      .where(eq(listings.status, 'active'));
+    
+    if (listingType) {
+      query = query.where(eq(listings.listingType, listingType));
+    }
+    
+    return await query;
+  }
+
+  async searchListings(params: {
+    commodityId?: number, 
+    circleId?: number, 
+    minPrice?: number, 
+    maxPrice?: number, 
+    listingType?: string,
+    quality?: string
+  }): Promise<Listing[]> {
+    let conditions = [eq(listings.status, 'active')];
+    
+    if (params.commodityId) {
+      conditions.push(eq(listings.commodityId, params.commodityId));
+    }
+    
+    if (params.circleId) {
+      conditions.push(eq(listings.circleId, params.circleId));
+    }
+    
+    if (params.minPrice !== undefined) {
+      conditions.push(sql`${listings.pricePerUnit} >= ${params.minPrice}`);
+    }
+    
+    if (params.maxPrice !== undefined) {
+      conditions.push(sql`${listings.pricePerUnit} <= ${params.maxPrice}`);
+    }
+    
+    if (params.listingType) {
+      conditions.push(eq(listings.listingType, params.listingType));
+    }
+    
+    if (params.quality) {
+      conditions.push(eq(listings.quality, params.quality));
+    }
+    
+    return await db
+      .select()
+      .from(listings)
+      .where(and(...conditions));
+  }
+
+  // Marketplace Offer operations
+  async getOffer(id: number): Promise<Offer | undefined> {
+    const [offer] = await db
+      .select()
+      .from(offers)
+      .where(eq(offers.id, id));
+    return offer || undefined;
+  }
+
+  async createOffer(offer: InsertOffer): Promise<Offer> {
+    const [newOffer] = await db
+      .insert(offers)
+      .values(offer)
+      .returning();
+    return newOffer;
+  }
+
+  async updateOfferStatus(id: number, status: string): Promise<Offer | undefined> {
+    const [updatedOffer] = await db
+      .update(offers)
+      .set({ status })
+      .where(eq(offers.id, id))
+      .returning();
+    return updatedOffer || undefined;
+  }
+
+  async getOffersByListing(listingId: number): Promise<Offer[]> {
+    return await db
+      .select()
+      .from(offers)
+      .where(eq(offers.listingId, listingId));
+  }
+
+  async getOffersByBuyer(buyerId: number): Promise<Offer[]> {
+    return await db
+      .select()
+      .from(offers)
+      .where(eq(offers.buyerId, buyerId));
+  }
+
+  async getOffersBySeller(sellerId: number): Promise<Offer[]> {
+    return await db
+      .select()
+      .from(offers)
+      .leftJoin(listings, eq(offers.listingId, listings.id))
+      .where(eq(listings.userId, sellerId));
+  }
+
+  async getUserOffers(userId: number): Promise<Offer[]> {
+    // Get offers where user is either buyer or seller
+    const buyerOffers = await this.getOffersByBuyer(userId);
+    const sellerOffers = await this.getOffersBySeller(userId);
+    
+    // Combine both arrays (removing duplicates if any)
+    const allOffers = [...buyerOffers, ...sellerOffers];
+    const uniqueOffers = allOffers.filter((offer, index, self) => 
+      index === self.findIndex(o => o.id === offer.id)
+    );
+    
+    return uniqueOffers;
+  }
+
+  // Trade operations
+  async getTrade(id: number): Promise<Trade | undefined> {
+    const [trade] = await db
+      .select()
+      .from(trades)
+      .where(eq(trades.id, id));
+    return trade || undefined;
+  }
+
+  async createTrade(trade: InsertTrade): Promise<Trade> {
+    const [newTrade] = await db
+      .insert(trades)
+      .values(trade)
+      .returning();
+    return newTrade;
+  }
+
+  async updateTrade(id: number, trade: Partial<Trade>): Promise<Trade | undefined> {
+    const [updatedTrade] = await db
+      .update(trades)
+      .set(trade)
+      .where(eq(trades.id, id))
+      .returning();
+    return updatedTrade || undefined;
+  }
+
+  async getUserTrades(userId: number, role?: string): Promise<Trade[]> {
+    if (role === 'buyer') {
+      return await db
+        .select()
+        .from(trades)
+        .where(eq(trades.buyerId, userId));
+    } else if (role === 'seller') {
+      return await db
+        .select()
+        .from(trades)
+        .where(eq(trades.sellerId, userId));
+    } else {
+      // Get all trades where user is either buyer or seller
+      return await db
+        .select()
+        .from(trades)
+        .where(or(
+          eq(trades.buyerId, userId),
+          eq(trades.sellerId, userId)
+        ));
+    }
+  }
+
+  async getTradesByStatus(status: string): Promise<Trade[]> {
+    return await db
+      .select()
+      .from(trades)
+      .where(eq(trades.status, status));
+  }
+
+  async updateTradeRating(id: number, rating: number, review: string, role: string): Promise<Trade | undefined> {
+    const update = role === 'buyer' 
+      ? { buyerRating: rating, buyerReview: review } 
+      : { sellerRating: rating, sellerReview: review };
+    
+    const [updatedTrade] = await db
+      .update(trades)
+      .set(update)
+      .where(eq(trades.id, id))
+      .returning();
+    
+    return updatedTrade || undefined;
   }
 }
 
