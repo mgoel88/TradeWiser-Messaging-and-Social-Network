@@ -63,7 +63,7 @@ const Header = () => {
   };
 
   return (
-    <header className="bg-white shadow-md sticky top-0 z-50">
+    <header className="bg-white shadow-md sticky top-0 z-50 hidden lg:block">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
@@ -76,18 +76,8 @@ const Header = () => {
             </Link>
           </div>
 
-          {/* Mobile Menu Button */}
-          {isMobile && (
-            <button
-              className="ml-4 p-2 text-gray-700 hover:text-primary rounded-full hover:bg-gray-100 md:hidden"
-              onClick={() => setMenuOpen(!menuOpen)}
-            >
-              {menuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            </button>
-          )}
-
           {/* Search Bar - Desktop */}
-          <div className="hidden md:block flex-1 max-w-xl mx-6">
+          <div className="flex-1 max-w-xl mx-6">
             <form onSubmit={handleSearch}>
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">
@@ -105,7 +95,7 @@ const Header = () => {
           </div>
 
           {/* Navigation Icons */}
-          <nav className="flex items-center space-x-1 md:space-x-4">
+          <nav className="flex items-center space-x-4">
             <Link href="/" className="p-2 text-gray-700 hover:text-primary rounded-full hover:bg-gray-100">
               <Home className="h-5 w-5" />
             </Link>
@@ -115,9 +105,9 @@ const Header = () => {
             <Link href="/commodities" className="p-2 text-gray-700 hover:text-primary rounded-full hover:bg-gray-100">
               <MapPin className="h-5 w-5" />
             </Link>
-            <Button variant="ghost" size="icon" className="p-2 text-gray-700 hover:text-primary rounded-full hover:bg-gray-100">
+            <Link href="/messages" className="p-2 text-gray-700 hover:text-primary rounded-full hover:bg-gray-100">
               <Bell className="h-5 w-5" />
-            </Button>
+            </Link>
             <LanguageSelector />
             
             {isLoading ? (
@@ -125,13 +115,13 @@ const Header = () => {
             ) : user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="hidden md:flex items-center space-x-2 p-1">
+                  <button className="flex items-center space-x-2 p-1">
                     <img
                       src={user.avatar || "https://ui-avatars.com/api/?name=" + encodeURIComponent(user.name)}
                       alt="Profile"
                       className="w-8 h-8 rounded-full object-cover border border-gray-300"
                     />
-                    <span className="font-medium text-sm hidden lg:inline">{user.name}</span>
+                    <span className="font-medium text-sm hidden xl:inline">{user.name}</span>
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -155,44 +145,6 @@ const Header = () => {
           </nav>
         </div>
       </div>
-
-      {/* Mobile Search Bar */}
-      <div className="md:hidden px-4 pb-3">
-        <form onSubmit={handleSearch}>
-          <div className="relative">
-            <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">
-              <Search className="h-4 w-4" />
-            </span>
-            <Input
-              type="text"
-              placeholder={t("common.search_placeholder")}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-full bg-gray-50"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-        </form>
-      </div>
-
-      {/* Mobile Navigation Menu */}
-      {isMobile && menuOpen && (
-        <div className="md:hidden bg-white border-t border-gray-100">
-          <div className="py-3 space-y-1">
-            <Link href="/profile" className="flex items-center px-4 py-3 hover:bg-gray-50">
-              <span>{t("profile.edit_profile")}</span>
-            </Link>
-            <Link href="/kyc" className="flex items-center px-4 py-3 hover:bg-gray-50">
-              <span>{t("kyc.verification")}</span>
-            </Link>
-            <button 
-              onClick={handleLogout}
-              className="flex items-center px-4 py-3 hover:bg-gray-50 w-full text-left"
-            >
-              <span>{t("auth.logout")}</span>
-            </button>
-          </div>
-        </div>
-      )}
     </header>
   );
 };
