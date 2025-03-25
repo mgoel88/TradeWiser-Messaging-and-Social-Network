@@ -392,6 +392,138 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Calculate match score for location-based commodity matching
+  const calculateMatchScore = (isUserInterested: boolean, distance: number, tradingVolume: number): number => {
+    // Base score
+    let score = 50;
+    
+    // User interest is the most important factor (+30)
+    if (isUserInterested) {
+      score += 30;
+    }
+    
+    // Distance factor (closer = better score, max +20)
+    // For a typical 100km radius search:
+    // - 0-20km: +20 points
+    // - 20-40km: +15 points
+    // - 40-60km: +10 points
+    // - 60-80km: +5 points
+    // - 80-100km: +0 points
+    if (distance <= 20) {
+      score += 20;
+    } else if (distance <= 40) {
+      score += 15;
+    } else if (distance <= 60) {
+      score += 10;
+    } else if (distance <= 80) {
+      score += 5;
+    }
+    
+    // Trading volume factor (higher = better score, max +20)
+    // Scale from 0 to 20 based on trading volume
+    // Using log scale to avoid extremely high volume dominating
+    if (tradingVolume > 0) {
+      // Log base 10 of trading volume, capped at 10,000,000
+      const logVolume = Math.min(Math.log10(tradingVolume), 7);
+      // Scale to 0-20 range: 0 points for volume=1, 20 points for volume=10M+
+      score += Math.round((logVolume / 7) * 20);
+    }
+    
+    return score;
+  };
+  
+  // Smart location-based commodity matching system
+  app.get("/api/commodities/location-match", isAuthenticated, async (req, res) => {
+    try {
+      const { latitude, longitude, radius } = req.query;
+      
+      // Input validation
+      if (!latitude || !longitude) {
+        return res.status(400).json({ message: "Latitude and longitude are required" });
+      }
+      
+      const lat = parseFloat(latitude as string);
+      const lng = parseFloat(longitude as string);
+      const radiusKm = radius ? parseFloat(radius as string) : 50; // Default 50km radius
+      
+      if (isNaN(lat) || isNaN(lng) || isNaN(radiusKm)) {
+        return res.status(400).json({ message: "Invalid coordinates or radius" });
+      }
+      
+      if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        return res.status(400).json({ message: "Coordinates out of range" });
+      }
+      
+      // Get nearby circles
+      const nearbyCircles = await storage.getNearbyCircles(lat, lng, radiusKm);
+      
+      if (!nearbyCircles || nearbyCircles.length === 0) {
+        return res.json({ 
+          matches: [],
+          message: "No circles found in your area" 
+        });
+      }
+      
+      // Get user commodity interests
+      const userId = (req.user as any).id;
+      const userCommodities = await storage.listUserCommodities(userId);
+      
+      // For each nearby circle, find common commodities
+      const commodityMatches = [];
+      
+      for (const circle of nearbyCircles) {
+        // Get commodities for this circle
+        const circleCommodities = await storage.getCommoditiesByCircle(circle.id);
+        
+        // Map user's commodity IDs for easy lookup
+        const userCommodityIds = new Set(userCommodities.map((uc: any) => uc.commodityId));
+        
+        // Find matching commodities
+        for (const cc of circleCommodities) {
+          // Check if user is interested in this commodity
+          const isUserInterested = userCommodityIds.has(cc.commodityId);
+          
+          // Get commodity details
+          const commodity = await storage.getCommodity(cc.commodityId);
+          
+          // Skip if commodity not found
+          if (!commodity) continue;
+          
+          commodityMatches.push({
+            circle: {
+              ...circle,
+              distance: circle.distance || 0 // Handle if distance is not provided
+            },
+            commodity,
+            price: cc.currentPrice,
+            priceChange: cc.priceChange || 0,
+            isUserInterested,
+            distance: circle.distance || 0,
+            tradingVolume: cc.tradingVolume || 0,
+            matchScore: calculateMatchScore(
+              isUserInterested, 
+              circle.distance || 0, 
+              cc.tradingVolume || 0
+            )
+          });
+        }
+      }
+      
+      // Sort by match score (descending)
+      commodityMatches.sort((a, b) => b.matchScore - a.matchScore);
+      
+      res.json({
+        matches: commodityMatches.slice(0, 20), // Limit to top 20 matches
+        totalMatches: commodityMatches.length,
+        nearbyCircles: nearbyCircles.length
+      });
+      
+    } catch (error) {
+      console.error("Error in location-based commodity matching:", error);
+      res.status(500).json({ message: "Failed to find commodity matches" });
+    }
+  });
+  
   app.get("/api/commodities/:id", async (req, res) => {
     try {
       const commodityId = parseInt(req.params.id);
