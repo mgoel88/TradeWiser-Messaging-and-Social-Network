@@ -592,7 +592,7 @@ export function TradeMessageComposer({
                     )}
                     {broadcast && getBroadcastStatus() && (
                       <div className="flex items-center mt-1 p-2 bg-muted rounded-md">
-                        <BroadcastIcon className="h-4 w-4 mr-2" />
+                        <Radio className="h-4 w-4 mr-2" />
                         <span>{getBroadcastStatus()}</span>
                       </div>
                     )}
@@ -679,7 +679,7 @@ export function TradeMessageComposer({
                     </div>
                     {broadcast ? (
                       <div className="flex items-center">
-                        <BroadcastIcon className="h-4 w-4 mr-1 text-blue-500" />
+                        <Radio className="h-4 w-4 mr-1 text-blue-500" />
                         <span className="text-sm text-blue-500">Broadcast</span>
                       </div>
                     ) : (
