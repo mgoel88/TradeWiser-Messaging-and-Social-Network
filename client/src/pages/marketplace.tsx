@@ -8,6 +8,7 @@ import { getQueryFn, queryClient } from "@/lib/queryClient";
 import { Link } from "wouter";
 import { QUALITY_OPTIONS } from "@/lib/constants";
 import { useEffect, useState } from "react";
+import { AnimatedSkeleton, AnimatedCardSkeleton } from "@/components/ui/animated-skeleton";
 import { 
   CircleIcon, 
   Loader2, 
@@ -200,9 +201,18 @@ export default function Marketplace() {
             <TabsContent value="buy" className="mt-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {listingsLoading ? (
-                  <div className="col-span-full flex justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin" />
-                  </div>
+                  <>
+                    {[...Array(6)].map((_, i) => (
+                      <AnimatedCardSkeleton 
+                        key={i} 
+                        variant="shimmer" 
+                        imageHeight={0}
+                        lines={6}
+                        hasFooter={true}
+                        className="h-full"
+                      />
+                    ))}
+                  </>
                 ) : listingsData?.listings?.length === 0 ? (
                   <div className="col-span-full text-center py-12">
                     <p className="text-lg text-muted-foreground">No sell listings found</p>
@@ -220,9 +230,18 @@ export default function Marketplace() {
             <TabsContent value="sell" className="mt-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {listingsLoading ? (
-                  <div className="col-span-full flex justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin" />
-                  </div>
+                  <>
+                    {[...Array(6)].map((_, i) => (
+                      <AnimatedCardSkeleton 
+                        key={i} 
+                        variant="shimmer" 
+                        imageHeight={0}
+                        lines={6}
+                        hasFooter={true}
+                        className="h-full"
+                      />
+                    ))}
+                  </>
                 ) : listingsData?.listings?.length === 0 ? (
                   <div className="col-span-full text-center py-12">
                     <p className="text-lg text-muted-foreground">No buy listings found</p>
