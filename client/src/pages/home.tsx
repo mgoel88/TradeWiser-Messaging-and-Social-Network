@@ -9,6 +9,7 @@ import CreatePost from "@/components/feed/CreatePost";
 import FeedItem from "@/components/feed/FeedItem";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader } from "lucide-react";
+import { getQueryFn } from "@/lib/queryClient";
 
 const Home: React.FC = () => {
   const { toast } = useToast();
@@ -17,11 +18,13 @@ const Home: React.FC = () => {
   // Fetch posts for feed
   const { data: postsData, isLoading, error } = useQuery({
     queryKey: ['/api/posts'],
+    queryFn: getQueryFn({ on401: "returnNull" }),
   });
 
   // Check if user is authenticated
   const { data: sessionData } = useQuery({
     queryKey: ['/api/auth/session'],
+    queryFn: getQueryFn({ on401: "returnNull" }),
   });
 
   const isAuthenticated = sessionData?.user;
