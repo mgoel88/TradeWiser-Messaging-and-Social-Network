@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AnimatedSkeleton } from '@/components/ui/animated-skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Store, Briefcase, MapPin, Users, Star } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
@@ -157,26 +158,26 @@ const RecommendedConnections = () => {
         {isGeneralLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[...Array(6)].map((_, i) => (
-              <Card key={i} className="h-52">
+              <Card key={i} className="h-52 overflow-hidden">
                 <CardHeader className="pb-2">
                   <div className="flex items-center gap-3">
-                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <AnimatedSkeleton height={40} width={40} rounded="full" variant="shimmer" />
                     <div>
-                      <Skeleton className="h-5 w-32" />
-                      <Skeleton className="h-4 w-24 mt-1" />
+                      <AnimatedSkeleton height="20px" width="130px" variant="shimmer" />
+                      <AnimatedSkeleton height="16px" width="100px" variant="shimmer" className="mt-1" />
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="pb-2">
-                  <Skeleton className="h-4 w-full mt-1" />
-                  <Skeleton className="h-4 w-4/5 mt-1" />
+                  <AnimatedSkeleton height="16px" width="100%" variant="shimmer" className="mt-1" />
+                  <AnimatedSkeleton height="16px" width="80%" variant="shimmer" className="mt-1" />
                   <div className="mt-3 flex gap-1.5">
-                    <Skeleton className="h-6 w-20 rounded-full" />
-                    <Skeleton className="h-6 w-20 rounded-full" />
+                    <AnimatedSkeleton height="24px" width="80px" rounded="full" variant="shimmer" />
+                    <AnimatedSkeleton height="24px" width="80px" rounded="full" variant="shimmer" />
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Skeleton className="h-9 w-full rounded-md" />
+                  <AnimatedSkeleton height="36px" width="100%" variant="shimmer" />
                 </CardFooter>
               </Card>
             ))}
@@ -202,26 +203,26 @@ const RecommendedConnections = () => {
         {isBusinessLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[...Array(6)].map((_, i) => (
-              <Card key={i} className="h-52">
+              <Card key={i} className="h-52 overflow-hidden">
                 <CardHeader className="pb-2">
                   <div className="flex items-center gap-3">
-                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <AnimatedSkeleton height={40} width={40} rounded="full" variant="shimmer" />
                     <div>
-                      <Skeleton className="h-5 w-32" />
-                      <Skeleton className="h-4 w-24 mt-1" />
+                      <AnimatedSkeleton height="20px" width="130px" variant="shimmer" />
+                      <AnimatedSkeleton height="16px" width="100px" variant="shimmer" className="mt-1" />
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="pb-2">
-                  <Skeleton className="h-4 w-full mt-1" />
-                  <Skeleton className="h-4 w-4/5 mt-1" />
+                  <AnimatedSkeleton height="16px" width="100%" variant="shimmer" className="mt-1" />
+                  <AnimatedSkeleton height="16px" width="80%" variant="shimmer" className="mt-1" />
                   <div className="mt-3 flex gap-1.5">
-                    <Skeleton className="h-6 w-20 rounded-full" />
-                    <Skeleton className="h-6 w-20 rounded-full" />
+                    <AnimatedSkeleton height="24px" width="80px" rounded="full" variant="shimmer" />
+                    <AnimatedSkeleton height="24px" width="80px" rounded="full" variant="shimmer" />
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Skeleton className="h-9 w-full rounded-md" />
+                  <AnimatedSkeleton height="36px" width="100%" variant="shimmer" />
                 </CardFooter>
               </Card>
             ))}

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { apiRequest, getQueryFn } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AnimatedConnectionCardSkeleton } from '@/components/ui/animated-skeleton';
 import ConnectionItem from '@/components/connections/ConnectionItem';
 import RecommendedConnections from '@/components/connections/RecommendedConnections';
 import { Input } from '@/components/ui/input';
@@ -124,15 +125,7 @@ export default function ConnectionsPage() {
           {isLoading ? (
             <div className="space-y-4">
               {[1, 2, 3].map((i) => (
-                <Card key={i} className="p-4">
-                  <div className="flex items-center space-x-4">
-                    <Skeleton className="h-12 w-12 rounded-full" />
-                    <div className="space-y-2">
-                      <Skeleton className="h-4 w-[200px]" />
-                      <Skeleton className="h-4 w-[150px]" />
-                    </div>
-                  </div>
-                </Card>
+                <AnimatedConnectionCardSkeleton key={i} variant="shimmer" />
               ))}
             </div>
           ) : !filteredConnections.length ? (
@@ -158,19 +151,7 @@ export default function ConnectionsPage() {
           {isPendingLoading ? (
             <div className="space-y-4">
               {[1, 2].map((i) => (
-                <Card key={i} className="p-4">
-                  <div className="flex items-center space-x-4">
-                    <Skeleton className="h-12 w-12 rounded-full" />
-                    <div className="space-y-2">
-                      <Skeleton className="h-4 w-[200px]" />
-                      <Skeleton className="h-4 w-[150px]" />
-                    </div>
-                    <div className="flex space-x-2 ml-auto">
-                      <Skeleton className="h-9 w-[60px]" />
-                      <Skeleton className="h-9 w-[60px]" />
-                    </div>
-                  </div>
-                </Card>
+                <AnimatedConnectionCardSkeleton key={i} variant="shimmer" />
               ))}
             </div>
           ) : !pendingData?.connections?.length ? (
