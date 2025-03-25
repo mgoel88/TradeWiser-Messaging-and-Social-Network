@@ -112,9 +112,6 @@ export const posts = pgTable("posts", {
   createdAt: timestamp("created_at").defaultNow()
 });
 
-// KYC Status enum
-export const kycStatusEnum = pgEnum('kyc_status', ['pending', 'in_review', 'approved', 'rejected']);
-
 // Document status enum
 export const documentStatusEnum = pgEnum('document_status', ['pending', 'verified', 'rejected', 'resubmit']);
 
@@ -127,7 +124,7 @@ export const kycRequests = pgTable("kyc_requests", {
   businessName: text("business_name"),
   businessType: text("business_type"),
   registrationNumber: text("registration_number"),
-  status: kycStatusEnum("status").notNull().default('pending'),
+  status: text("status").notNull().default("pending"), // pending, in_review, approved, rejected
   verificationNotes: text("verification_notes"),
   verifiedBy: integer("verified_by"),
   verifiedAt: timestamp("verified_at"),

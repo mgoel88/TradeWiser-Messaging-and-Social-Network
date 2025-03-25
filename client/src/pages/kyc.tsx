@@ -1,11 +1,11 @@
-import React from "react";
+import React, { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Loader, CheckCircle, Shield, Upload } from "lucide-react";
+import { Loader, CheckCircle, Shield, Upload, X, File, FileText, AlertCircle, Paperclip } from "lucide-react";
 import { useLocation } from "wouter";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -27,7 +27,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ID_TYPES, BUSINESS_TYPES } from "@/lib/constants";
+import {
+  Tabs,
+  TabsContent,
+  TabsList, 
+  TabsTrigger
+} from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { ID_TYPES, BUSINESS_TYPES, DOCUMENT_TYPES } from "@/lib/constants";
 
 // Form validation schema based on shared schema
 const kycFormSchema = z.object({
@@ -219,6 +234,43 @@ const KYC: React.FC = () => {
     );
   }
   
+  // State for document type and file upload
+  const [selectedDocType, setSelectedDocType] = useState<string>("id_proof");
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Handle document type change
+  const handleDocTypeChange = (value: string) => {
+    setSelectedDocType(value);
+  };
+  
+  // Handle file selection
+  const handleFileSelect = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+  
+  // Handle file upload
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      // Add the selected files to the uploadedFiles state
+      setUploadedFiles(prev => [...prev, ...Array.from(files)]);
+      
+      // Reset the file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      
+      // Show toast notification
+      toast({
+        title: "File added",
+        description: `${files.length} file(s) added successfully.`,
+      });
+    }
+  };
+  
   // Show the KYC form if the user doesn't have a KYC request yet
   return (
     <main className="container mx-auto px-4 py-6">
@@ -353,22 +405,102 @@ const KYC: React.FC = () => {
                 <div className="space-y-4 pt-2 border-t border-gray-100">
                   <h3 className="font-medium">Document Upload</h3>
                   
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                    <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                    <p className="text-sm text-gray-500 mb-1">
-                      Upload scanned copies of your ID and business documents
-                    </p>
-                    <p className="text-xs text-gray-400 mb-3">
-                      Supported formats: PDF, JPG, PNG (max 5MB)
-                    </p>
-                    <Button variant="outline" type="button" className="text-sm">
-                      Select Files
-                    </Button>
-                  </div>
+                  <Tabs defaultValue="upload" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="upload">Upload Documents</TabsTrigger>
+                      <TabsTrigger value="list">Uploaded Documents</TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="upload" className="mt-4">
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                        <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                        <p className="text-sm text-gray-500 mb-1">
+                          Upload scanned copies of your ID and business documents
+                        </p>
+                        <p className="text-xs text-gray-400 mb-3">
+                          Supported formats: PDF, JPG, PNG (max 5MB)
+                        </p>
+                        
+                        <div className="mb-4">
+                          <Select 
+                            defaultValue={selectedDocType} 
+                            onValueChange={handleDocTypeChange}
+                          >
+                            <SelectTrigger className="w-full mb-3">
+                              <SelectValue placeholder="Select document type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {DOCUMENT_TYPES.map((type) => (
+                                <SelectItem key={type.value} value={type.value}>
+                                  <div className="flex items-center">
+                                    <span>{type.label}</span>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          
+                          <p className="text-xs text-gray-500 mb-4 text-left">
+                            <AlertCircle className="h-3 w-3 inline mr-1" />
+                            {DOCUMENT_TYPES.find(t => t.value === selectedDocType)?.description}
+                          </p>
+                        </div>
+                        
+                        <input
+                          type="file"
+                          ref={fileInputRef}
+                          onChange={handleFileUpload}
+                          className="hidden"
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          multiple
+                        />
+                        
+                        <Button 
+                          variant="outline" 
+                          type="button" 
+                          className="text-sm"
+                          onClick={handleFileSelect}
+                        >
+                          <Paperclip className="h-4 w-4 mr-2" /> Select Files
+                        </Button>
+                      </div>
+                    </TabsContent>
+                    
+                    <TabsContent value="list" className="mt-4">
+                      <Table>
+                        <TableCaption>Your uploaded documents</TableCaption>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Document Type</TableHead>
+                            <TableHead>File Name</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {/* Demo data for uploaded documents - this will be empty for new users */}
+                          <TableRow className="text-gray-500 italic">
+                            <TableCell colSpan={4} className="text-center py-8">
+                              <FileText className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                              <p>No documents uploaded yet</p>
+                            </TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </TabsContent>
+                  </Tabs>
                   
-                  <p className="text-xs text-gray-500">
-                    Note: Document upload functionality is coming soon. You can submit the form without documents for now.
-                  </p>
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 flex items-start">
+                    <AlertCircle className="h-5 w-5 text-yellow-600 mr-3 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm text-yellow-800 font-medium">Important Notice</p>
+                      <p className="text-xs text-yellow-700 mt-1">
+                        For faster KYC verification, please upload clear scans of your ID and business documents. 
+                        Your application can be processed without documents, but document verification 
+                        is required for trading above ₹50,000.
+                      </p>
+                    </div>
+                  </div>
                 </div>
                 
                 <div className="pt-4 flex justify-end">

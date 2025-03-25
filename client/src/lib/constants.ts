@@ -102,5 +102,14 @@ export const QUALITY_OPTIONS = [
   "Excellent"
 ];
 
+// Document types for KYC
+export const DOCUMENT_TYPES = [
+  { value: "id_proof", label: "ID Proof", description: "Aadhar, PAN, Voter ID, etc." },
+  { value: "address_proof", label: "Address Proof", description: "Utility bill, rent agreement, etc." },
+  { value: "business_proof", label: "Business Proof", description: "GST certificate, license, etc." },
+  { value: "bank_statement", label: "Bank Statement", description: "Last 6 months statement" },
+  { value: "other", label: "Other Documents", description: "Any other supporting documents" }
+];
+
 // App constants
 export const APP_NAME = "WizXConnect";
