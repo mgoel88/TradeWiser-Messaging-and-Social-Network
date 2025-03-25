@@ -12,13 +12,18 @@ import { AnimatedSkeleton, AnimatedCardSkeleton } from "@/components/ui/animated
 import { 
   CircleIcon, 
   Loader2, 
-  Package, 
-  ShoppingCart, 
-  Tag, 
-  Truck,
+  BarChart2, 
+  TrendingUp, 
+  TrendingDown, 
+  LineChart, 
+  BarChart,
+  PieChart,
   Search,
   SlidersHorizontal,
-  Filter
+  Filter,
+  DollarSign,
+  Scale,
+  Building2
 } from "lucide-react";
 
 export default function Marketplace() {
@@ -189,11 +194,11 @@ export default function Marketplace() {
           <Tabs defaultValue="buy" onValueChange={setTab}>
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="buy">
-                <ShoppingCart size={16} className="mr-2" />
+                <TrendingUp size={16} className="mr-2" />
                 Buy
               </TabsTrigger>
               <TabsTrigger value="sell">
-                <Tag size={16} className="mr-2" />
+                <TrendingDown size={16} className="mr-2" />
                 Sell
               </TabsTrigger>
             </TabsList>
@@ -270,31 +275,51 @@ function ListingCard({ listing }: { listing: any }) {
           <div>
             <CardTitle className="text-xl">{listing.commodity?.name}</CardTitle>
             <CardDescription className="flex items-center mt-1">
-              <CircleIcon size={12} className="mr-1" />
+              <Building2 size={12} className="mr-1" />
               {listing.circle?.name}
             </CardDescription>
           </div>
           <Badge variant={listing.listingType === 'buy' ? "outline" : "default"}>
-            {listing.listingType === 'buy' ? 'Buying' : 'Selling'}
+            {listing.listingType === 'buy' ? (
+              <div className="flex items-center gap-1">
+                <TrendingUp size={12} />
+                <span>Buying</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1">
+                <TrendingDown size={12} />
+                <span>Selling</span>
+              </div>
+            )}
           </Badge>
         </div>
       </CardHeader>
       <CardContent className="pb-2">
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <p className="text-sm text-muted-foreground">Price</p>
+            <p className="text-sm text-muted-foreground flex items-center">
+              <DollarSign size={14} className="mr-1" />
+              Price
+            </p>
             <p className="font-medium">₹{listing.pricePerUnit}/kg</p>
           </div>
           <div>
-            <p className="text-sm text-muted-foreground">Quantity</p>
+            <p className="text-sm text-muted-foreground flex items-center">
+              <Scale size={14} className="mr-1" />
+              Quantity
+            </p>
             <p className="font-medium">{listing.quantity} kg</p>
           </div>
           <div>
-            <p className="text-sm text-muted-foreground">Quality</p>
+            <p className="text-sm text-muted-foreground flex items-center">
+              <BarChart size={14} className="mr-1" />
+              Quality
+            </p>
             <p className="font-medium">{listing.quality}</p>
           </div>
           <div>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground flex items-center">
+              <PieChart size={14} className="mr-1" />
               {listing.minQuantity ? 'Min. Order' : 'Available'}
             </p>
             <p className="font-medium">

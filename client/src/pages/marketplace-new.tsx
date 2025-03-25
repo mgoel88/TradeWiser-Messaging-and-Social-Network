@@ -25,7 +25,19 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, ChevronLeft } from "lucide-react";
+import { 
+  Calendar as CalendarIcon, 
+  ChevronLeft, 
+  BarChart2, 
+  TrendingUp, 
+  TrendingDown, 
+  BarChart,
+  PieChart,
+  DollarSign,
+  Scale,
+  Building2,
+  CircleIcon
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Create a schema for the listing form
