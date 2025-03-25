@@ -13,6 +13,7 @@ import Login from "@/pages/login";
 import Register from "@/pages/register";
 import Messages from "@/pages/messages";
 import Assets from "@/pages/assets";
+import Connections from "@/pages/connections";
 import MarketNews from "@/pages/market-news";
 import Marketplace from "@/pages/marketplace";
 import MarketplaceNew from "@/pages/marketplace-new";
@@ -56,6 +57,7 @@ function Router() {
       <Route path="/commodities" component={Commodities} />
       <Route path="/kyc" component={KYC} />
       <Route path="/messages" component={Messages} />
+      <Route path="/connections" component={Connections} />
       <Route path="/assets" component={Assets} />
       <Route path="/market-news" component={MarketNews} />
       <Route path="/marketplace" component={Marketplace} />
