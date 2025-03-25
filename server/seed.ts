@@ -624,7 +624,7 @@ async function main() {
     sellerId: priya.id,
     quantity: 200,
     pricePerUnit: 2125,
-    totalPrice: 200 * 2125,
+    totalAmount: 200 * 2125,
     message: "I'm interested in buying 200 quintals of wheat. Can you confirm the protein content and gluten percentage? Also, can you deliver to Delhi at this price?",
     status: "pending",
     createdAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
@@ -638,7 +638,7 @@ async function main() {
     sellerId: sunita.id,
     quantity: 50,
     pricePerUnit: 5200,
-    totalPrice: 50 * 5200,
+    totalAmount: 50 * 5200,
     message: "Looking to procure 50 quintals of chickpeas for our processing unit. Can you share some sample images of the current lot?",
     status: "accepted",
     createdAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
@@ -653,7 +653,7 @@ async function main() {
     sellerId: bengalTraders.id,
     quantity: 100,
     pricePerUnit: 3350,
-    totalPrice: 100 * 3350,
+    totalAmount: 100 * 3350,
     message: "We can supply 100 quintals of premium 1121 basmati rice with export quality certification. Would need 7 days for preparation and delivery to Delhi.",
     status: "accepted",
     createdAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
