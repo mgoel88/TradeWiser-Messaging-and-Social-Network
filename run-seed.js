@@ -1,15 +1,10 @@
-// Simple script to run the seed.ts file
-const { exec } = require('child_process');
+import { execSync } from 'child_process';
 
-console.log('Running database seed script...');
-exec('npx tsx server/seed.ts', (error, stdout, stderr) => {
-  if (error) {
-    console.error(`Error: ${error.message}`);
-    return;
-  }
-  if (stderr) {
-    console.error(`Stderr: ${stderr}`);
-    return;
-  }
-  console.log(stdout);
-});
+console.log('Building the TypeScript seed file...');
+try {
+  execSync('npx tsx server/seed.ts', { stdio: 'inherit' });
+  console.log('Seed completed successfully!');
+} catch (error) {
+  console.error('Error running seed:', error);
+  process.exit(1);
+}

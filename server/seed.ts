@@ -2,7 +2,9 @@ import { db } from "./db";
 import {
   users, circles, commodities, assets, 
   circleCommodities, userCircles, userCommodities, 
-  connections, posts, kycRequests
+  connections, posts, kycRequests, listings,
+  offers, trades, chats, chatMembers, messages,
+  messageTemplates, tradeContracts
 } from "@shared/schema";
 
 async function main() {
@@ -10,6 +12,15 @@ async function main() {
   
   // Clean existing data
   console.log("Cleaning existing data...");
+  // Delete dependent data first (foreign key constraints)
+  await db.delete(messages);
+  await db.delete(chatMembers);
+  await db.delete(chats);
+  await db.delete(tradeContracts);
+  await db.delete(trades);
+  await db.delete(offers);
+  await db.delete(listings);
+  await db.delete(messageTemplates);
   await db.delete(kycRequests);
   await db.delete(posts);
   await db.delete(connections);
@@ -524,6 +535,612 @@ async function main() {
     businessType: "MSME",
     registrationNumber: "MSME-DEL-12345",
     documents: ["id.jpg", "business_registration.pdf"]
+  });
+  
+  // Create marketplace listings
+  console.log("Creating marketplace listings...");
+  
+  // Wheat listing by Priya
+  const [wheatListing] = await db.insert(listings).values({
+    sellerId: priya.id,
+    commodityId: wheat.id,
+    circleId: bikaner.id,
+    title: "Premium Quality Wheat - MP 3016 Variety",
+    description: "Fresh harvest, cleaned and sorted. Premium quality wheat with high protein content suitable for flour production. Direct from farmers in Bikaner region.",
+    quantity: 500,
+    availableQuantity: 500,
+    unit: "quintals",
+    pricePerUnit: 2150,
+    minQuantity: 50,
+    maxQuantity: 500,
+    listingType: "sell",
+    quality: "Premium",
+    moisture: "11-12%",
+    deliveryMethod: "Ex-Warehouse",
+    paymentTerms: "Advance Payment",
+    validUntil: new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000), // 15 days from now
+    status: "active",
+    createdAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+    photos: ["https://images.unsplash.com/photo-1574323347407-f5e1c5a1ec21"]
+  }).returning();
+  
+  // Chana listing by Sunita
+  const [chanaListing] = await db.insert(listings).values({
+    sellerId: sunita.id,
+    commodityId: chana.id,
+    circleId: bikaner.id,
+    title: "Fresh Chickpeas (Chana) from Rajasthan",
+    description: "High quality chickpeas cultivated in Bikaner region. Clean, uniform size, and good taste. Suitable for dal production and flour milling.",
+    quantity: 100,
+    availableQuantity: 100,
+    unit: "quintals",
+    pricePerUnit: 5250,
+    minQuantity: 10,
+    maxQuantity: 100,
+    listingType: "sell",
+    quality: "Good",
+    moisture: "9-10%",
+    deliveryMethod: "Ex-Warehouse",
+    paymentTerms: "50% Advance, 50% Against Delivery",
+    validUntil: new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000), // 10 days from now
+    status: "active",
+    createdAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
+    photos: ["https://images.unsplash.com/photo-1515543904379-3d757abe3d54"]
+  }).returning();
+  
+  // Buy request for Rice by Rajesh
+  const [riceBuyListing] = await db.insert(listings).values({
+    sellerId: rajesh.id,
+    commodityId: rice.id,
+    circleId: delhi.id,
+    title: "Looking to Buy Premium Quality Basmati Rice",
+    description: "Interested in procuring premium quality basmati rice for export. Need consistent quality with proper certification. Ready to offer competitive rates for the right product.",
+    quantity: 200,
+    availableQuantity: 200,
+    unit: "quintals",
+    pricePerUnit: 3300,
+    minQuantity: 50,
+    maxQuantity: 200,
+    listingType: "buy",
+    quality: "Premium",
+    moisture: "12-13%",
+    deliveryMethod: "Delivered to Delhi Warehouse",
+    paymentTerms: "LC or Bank Transfer",
+    validUntil: new Date(now.getTime() + 20 * 24 * 60 * 60 * 1000), // 20 days from now
+    status: "active",
+    createdAt: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000) // 5 days ago
+  }).returning();
+  
+  // Soybean buy request by Vijay
+  const [soybeanBuyListing] = await db.insert(listings).values({
+    sellerId: vijay.id,
+    commodityId: soybean.id,
+    circleId: indore.id,
+    title: "Seeking High Protein Soybean for Processing",
+    description: "Our processing unit requires high protein soybean (min 40% protein content) for oil extraction and meal production. Looking for regular suppliers who can provide consistent quality.",
+    quantity: 1000,
+    availableQuantity: 1000,
+    unit: "MT",
+    pricePerUnit: 4850,
+    minQuantity: 100,
+    maxQuantity: 1000,
+    listingType: "buy",
+    quality: "High Protein",
+    moisture: "10-12%",
+    deliveryMethod: "Delivered to Indore Processing Unit",
+    paymentTerms: "Weekly Settlement",
+    validUntil: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+    status: "active",
+    createdAt: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) // 7 days ago
+  }).returning();
+  
+  // Create offers for listings
+  console.log("Creating offers for marketplace listings...");
+  
+  // Offer for wheat from Rajesh
+  const [wheatOffer] = await db.insert(offers).values({
+    listingId: wheatListing.id,
+    buyerId: rajesh.id,
+    sellerId: priya.id,
+    quantity: 200,
+    pricePerUnit: 2125,
+    totalPrice: 200 * 2125,
+    message: "I'm interested in buying 200 quintals of wheat. Can you confirm the protein content and gluten percentage? Also, can you deliver to Delhi at this price?",
+    status: "pending",
+    createdAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
+    expiresAt: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000) // 2 days from now
+  }).returning();
+  
+  // Offer for Chana from Amit
+  const [chanaOffer] = await db.insert(offers).values({
+    listingId: chanaListing.id,
+    buyerId: amit.id,
+    sellerId: sunita.id,
+    quantity: 50,
+    pricePerUnit: 5200,
+    totalPrice: 50 * 5200,
+    message: "Looking to procure 50 quintals of chickpeas for our processing unit. Can you share some sample images of the current lot?",
+    status: "accepted",
+    createdAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+    expiresAt: new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000), // 1 day from now
+    acceptedAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000) // 1 day ago
+  }).returning();
+  
+  // Offer for rice buy listing from Bengal Traders
+  const [riceOffer] = await db.insert(offers).values({
+    listingId: riceBuyListing.id,
+    buyerId: rajesh.id,
+    sellerId: bengalTraders.id,
+    quantity: 100,
+    pricePerUnit: 3350,
+    totalPrice: 100 * 3350,
+    message: "We can supply 100 quintals of premium 1121 basmati rice with export quality certification. Would need 7 days for preparation and delivery to Delhi.",
+    status: "accepted",
+    createdAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
+    expiresAt: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000), // 2 days from now
+    acceptedAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000) // 2 days ago
+  }).returning();
+  
+  // Create trades
+  console.log("Creating trades...");
+  
+  // Trade from the accepted Chana offer
+  const [chanaTrade] = await db.insert(trades).values({
+    offerId: chanaOffer.id,
+    listingId: chanaListing.id,
+    buyerId: amit.id,
+    sellerId: sunita.id,
+    commodityId: chana.id,
+    quantity: 50,
+    pricePerUnit: 5200,
+    totalAmount: 50 * 5200,
+    status: "pending",
+    createdAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
+    paymentStatus: "pending",
+    deliveryStatus: "pending"
+  }).returning();
+  
+  // Trade from the accepted Rice offer
+  const [riceTrade] = await db.insert(trades).values({
+    offerId: riceOffer.id,
+    listingId: riceBuyListing.id,
+    buyerId: rajesh.id,
+    sellerId: bengalTraders.id,
+    commodityId: rice.id,
+    quantity: 100,
+    pricePerUnit: 3350,
+    totalAmount: 100 * 3350,
+    status: "completed",
+    createdAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+    completedAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
+    paymentStatus: "completed",
+    deliveryStatus: "completed",
+    buyerRating: 5,
+    sellerRating: 4,
+    buyerReview: "Excellent quality rice, exactly as described. Delivery was on time and packaging was secure.",
+    sellerReview: "Prompt payment and good communication throughout the transaction. Would do business again."
+  }).returning();
+  
+  // Create trade contracts
+  console.log("Creating trade contracts...");
+  
+  // Contract for the Chana trade
+  const [chanaContract] = await db.insert(tradeContracts).values({
+    tradeId: chanaTrade.id,
+    buyerId: amit.id,
+    sellerId: sunita.id,
+    title: "Purchase Agreement - 50 Quintals Chana",
+    commodityId: chana.id,
+    quantity: 50,
+    unit: "quintals",
+    pricePerUnit: 5200,
+    totalAmount: 50 * 5200,
+    status: "pending",
+    createdAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
+    qualitySpecification: "Good quality chickpeas, size 8-10mm, moisture content 9-10%",
+    deliveryTerms: "Ex-warehouse Bikaner, to be picked up by buyer within 5 days of contract signing",
+    paymentTerms: "50% advance payment upon contract signing, 50% before pickup",
+    legalTerms: "As per standard trading terms. Any disputes to be resolved through arbitration in Bikaner jurisdictional courts.",
+    additionalTerms: "Quality check to be done at seller's warehouse before loading. Buyer to arrange transportation.",
+    buyerSigned: true,
+    sellerSigned: false,
+    buyerSignedAt: new Date(now.getTime() - 12 * 60 * 60 * 1000) // 12 hours ago
+  }).returning();
+  
+  // Contract for the completed Rice trade
+  await db.insert(tradeContracts).values({
+    tradeId: riceTrade.id,
+    buyerId: rajesh.id,
+    sellerId: bengalTraders.id,
+    title: "Purchase Agreement - 100 Quintals Basmati Rice",
+    commodityId: rice.id,
+    quantity: 100,
+    unit: "quintals",
+    pricePerUnit: 3350,
+    totalAmount: 100 * 3350,
+    status: "completed",
+    createdAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+    completedAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
+    qualitySpecification: "Premium 1121 Basmati Rice, minimum length 8.2mm, moisture content 12-13%, purity 99%",
+    deliveryTerms: "Delivered to Kumar Enterprises Warehouse, Delhi. Delivery to be completed within 7 days of contract signing.",
+    paymentTerms: "LC payment terms, 20% advance, 80% against delivery after quality verification",
+    legalTerms: "As per standard trading terms. Any disputes to be resolved through arbitration in Delhi jurisdictional courts.",
+    additionalTerms: "Quality check to be done at buyer's warehouse upon delivery. Certificate of Analysis to be provided by seller.",
+    buyerSigned: true,
+    sellerSigned: true,
+    buyerSignedAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000), // 2 days - 2 hours ago
+    sellerSignedAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000 + 4 * 60 * 60 * 1000), // 2 days - 4 hours ago
+    contractDocument: "rice_trade_contract.pdf"
+  });
+  
+  // Create message templates
+  console.log("Creating message templates...");
+  
+  // Buy request template
+  await db.insert(messageTemplates).values({
+    userId: rajesh.id,
+    name: "Standard Buy Request",
+    templateType: "buy_request",
+    template: "Hello, I am interested in procuring {{commodity}} with the following specifications:\n\n- Quality: {{quality}}\n- Quantity: {{quantity}} {{unit}}\n- Price Range: {{priceRange}}\n- Delivery Location: {{deliveryLocation}}\n- Payment Terms: {{paymentTerms}}\n\nPlease let me know if you can supply according to these requirements. Looking forward to your response.",
+    defaultValues: {
+      commodity: "Wheat",
+      quality: "Premium",
+      quantity: "100",
+      unit: "Quintals",
+      priceRange: "₹2100-2200 per quintal",
+      deliveryLocation: "Delhi Warehouse",
+      paymentTerms: "50% advance, 50% on delivery"
+    },
+    isDefault: false,
+    isFavorite: true,
+    usageCount: 5,
+    lastUsedAt: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
+    createdAt: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) // 30 days ago
+  });
+  
+  // Sell offer template
+  await db.insert(messageTemplates).values({
+    userId: priya.id,
+    name: "Wheat Sell Offer",
+    templateType: "sell_offer",
+    template: "Dear {{buyerName}},\n\nI have the following offer for you:\n\n- Commodity: Wheat ({{variety}})\n- Quantity Available: {{quantity}} {{unit}}\n- Price: {{price}} per {{unit}}\n- Quality: {{quality}}\n- Location: {{location}}\n- Dispatch Possible By: {{dispatchDate}}\n\nPlease let me know if you are interested. We can also arrange for samples if required.\n\nRegards,\nPriya Singh",
+    defaultValues: {
+      buyerName: "",
+      variety: "MP 3016",
+      quantity: "500",
+      unit: "Quintals",
+      price: "₹2150",
+      quality: "Premium, Moisture 11-12%",
+      location: "Bikaner",
+      dispatchDate: "Within 3 days of order confirmation"
+    },
+    isDefault: false,
+    isFavorite: true,
+    usageCount: 8,
+    lastUsedAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
+    createdAt: new Date(now.getTime() - 45 * 24 * 60 * 60 * 1000) // 45 days ago
+  });
+  
+  // Negotiation template
+  await db.insert(messageTemplates).values({
+    userId: amit.id,
+    name: "Standard Counter Offer",
+    templateType: "negotiation",
+    template: "Thank you for your offer. I would like to propose the following revised terms:\n\n- Quantity: {{quantity}} {{unit}}\n- Price: {{price}} per {{unit}}\n- Delivery Terms: {{deliveryTerms}}\n- Payment: {{paymentTerms}}\n\nPlease let me know if these terms are acceptable or if you would like to discuss further.",
+    defaultValues: {
+      quantity: "50",
+      unit: "Quintals",
+      price: "₹5200",
+      deliveryTerms: "Ex-warehouse",
+      paymentTerms: "50% advance, 50% before pickup"
+    },
+    isDefault: false,
+    isFavorite: true,
+    usageCount: 3,
+    lastUsedAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+    createdAt: new Date(now.getTime() - 20 * 24 * 60 * 60 * 1000) // 20 days ago
+  });
+  
+  // Create chats and messages
+  console.log("Creating chats and messages...");
+  
+  // Direct chat between Priya and Rajesh
+  const [priyaRajeshChat] = await db.insert(chats).values({
+    name: null, // Direct chats don't need a name
+    type: "direct",
+    creatorId: priya.id,
+    isActive: true,
+    lastMessageAt: new Date(now.getTime() - 6 * 60 * 60 * 1000), // 6 hours ago
+    metadata: {}
+  }).returning();
+  
+  // Add chat members
+  await db.insert(chatMembers).values({
+    chatId: priyaRajeshChat.id,
+    userId: priya.id,
+    role: "member",
+    isActive: true
+  });
+  
+  await db.insert(chatMembers).values({
+    chatId: priyaRajeshChat.id,
+    userId: rajesh.id,
+    role: "member",
+    isActive: true
+  });
+  
+  // Add messages to the Priya-Rajesh chat
+  await db.insert(messages).values({
+    chatId: priyaRajeshChat.id,
+    senderId: priya.id,
+    type: "text",
+    content: "Hello Rajesh, I saw your interest in wheat. I currently have 500 quintals of premium quality wheat available. Would you be interested?",
+    createdAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
+    status: "read",
+    metadata: {}
+  });
+  
+  await db.insert(messages).values({
+    chatId: priyaRajeshChat.id,
+    senderId: rajesh.id,
+    type: "text",
+    content: "Hi Priya, yes I'm interested. What's the current rate you're offering and what's the quality like?",
+    createdAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000 + 30 * 60 * 1000), // 1 day - 30 mins ago
+    status: "read",
+    metadata: {}
+  });
+  
+  // Template-based sell offer message
+  await db.insert(messages).values({
+    chatId: priyaRajeshChat.id,
+    senderId: priya.id,
+    type: "template",
+    content: "Dear Rajesh,\n\nI have the following offer for you:\n\n- Commodity: Wheat (MP 3016)\n- Quantity Available: 500 Quintals\n- Price: ₹2150 per Quintal\n- Quality: Premium, Moisture 11-12%\n- Location: Bikaner\n- Dispatch Possible By: Within 3 days of order confirmation\n\nPlease let me know if you are interested. We can also arrange for samples if required.\n\nRegards,\nPriya Singh",
+    createdAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000 + 1 * 60 * 60 * 1000), // 1 day - 1 hour ago
+    status: "read",
+    metadata: {
+      templateType: "sell_offer",
+      commodity: "Wheat",
+      variety: "MP 3016",
+      quantity: 500,
+      unit: "Quintals",
+      price: 2150,
+      quality: "Premium, Moisture 11-12%"
+    }
+  });
+  
+  await db.insert(messages).values({
+    chatId: priyaRajeshChat.id,
+    senderId: rajesh.id,
+    type: "text",
+    content: "Thanks for the details. Price seems a bit high. Would you consider ₹2100 per quintal? I'm potentially interested in 200 quintals to start with.",
+    createdAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000), // 1 day - 2 hours ago
+    status: "read",
+    metadata: {}
+  });
+  
+  await db.insert(messages).values({
+    chatId: priyaRajeshChat.id,
+    senderId: priya.id,
+    type: "text",
+    content: "I can do ₹2125 per quintal for 200 quintals. That's the best I can offer considering the quality.",
+    createdAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000 + 3 * 60 * 60 * 1000), // 1 day - 3 hours ago
+    status: "read",
+    metadata: {}
+  });
+  
+  await db.insert(messages).values({
+    chatId: priyaRajeshChat.id,
+    senderId: rajesh.id,
+    type: "text",
+    content: "That sounds fair. I'll send an official offer through the marketplace for 200 quintals at ₹2125.",
+    createdAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000 + 4 * 60 * 60 * 1000), // 1 day - 4 hours ago
+    status: "read",
+    metadata: {}
+  });
+  
+  await db.insert(messages).values({
+    chatId: priyaRajeshChat.id,
+    senderId: rajesh.id,
+    type: "trade_request",
+    content: "I've sent an offer for your wheat listing. You can view it in the marketplace or directly from this link.",
+    createdAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000 + 5 * 60 * 60 * 1000), // 1 day - 5 hours ago
+    status: "read",
+    metadata: {
+      offerId: wheatOffer.id,
+      listingId: wheatListing.id,
+      quantity: 200,
+      pricePerUnit: 2125,
+      totalAmount: 200 * 2125
+    }
+  });
+  
+  await db.insert(messages).values({
+    chatId: priyaRajeshChat.id,
+    senderId: priya.id,
+    type: "text",
+    content: "I've received your offer. I'll review and get back to you shortly.",
+    createdAt: new Date(now.getTime() - 6 * 60 * 60 * 1000), // 6 hours ago
+    status: "read",
+    metadata: {}
+  });
+  
+  // Chat between Sunita and Amit (with contract)
+  const [sunitaAmitChat] = await db.insert(chats).values({
+    name: null, // Direct chats don't need a name
+    type: "direct",
+    creatorId: sunita.id,
+    isActive: true,
+    lastMessageAt: new Date(now.getTime() - 4 * 60 * 60 * 1000), // 4 hours ago
+    metadata: {}
+  }).returning();
+  
+  // Add chat members
+  await db.insert(chatMembers).values({
+    chatId: sunitaAmitChat.id,
+    userId: sunita.id,
+    role: "member",
+    isActive: true
+  });
+  
+  await db.insert(chatMembers).values({
+    chatId: sunitaAmitChat.id,
+    userId: amit.id,
+    role: "member",
+    isActive: true
+  });
+  
+  // Add messages to the Sunita-Amit chat
+  await db.insert(messages).values({
+    chatId: sunitaAmitChat.id,
+    senderId: amit.id,
+    type: "text",
+    content: "Hello Sunita, I'm interested in your chana listing. Can we discuss the details?",
+    createdAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
+    status: "read",
+    metadata: {}
+  });
+  
+  // Trade request and contract messages
+  await db.insert(messages).values({
+    chatId: sunitaAmitChat.id,
+    senderId: amit.id,
+    type: "trade_request",
+    content: "I'd like to place an offer for 50 quintals of chickpeas from your listing at ₹5200 per quintal.",
+    createdAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000 + 6 * 60 * 60 * 1000), // 2 days - 6 hours ago
+    status: "read",
+    metadata: {
+      offerId: chanaOffer.id,
+      listingId: chanaListing.id,
+      quantity: 50,
+      pricePerUnit: 5200,
+      totalAmount: 50 * 5200
+    }
+  });
+  
+  await db.insert(messages).values({
+    chatId: sunitaAmitChat.id,
+    senderId: sunita.id,
+    type: "text",
+    content: "I've accepted your offer. Let's proceed with the contract.",
+    createdAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000 + 8 * 60 * 60 * 1000), // 2 days - 8 hours ago
+    status: "read",
+    metadata: {}
+  });
+  
+  await db.insert(messages).values({
+    chatId: sunitaAmitChat.id,
+    senderId: sunita.id,
+    type: "contract_proposal",
+    content: "I've created a contract for our trade. Please review and sign if the terms are acceptable.",
+    createdAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000), // 1 day - 2 hours ago
+    status: "read",
+    metadata: {
+      contractId: chanaContract.id,
+      tradeId: chanaTrade.id,
+      title: "Purchase Agreement - 50 Quintals Chana"
+    }
+  });
+  
+  await db.insert(messages).values({
+    chatId: sunitaAmitChat.id,
+    senderId: amit.id,
+    type: "contract_signed",
+    content: "I've reviewed and signed the contract. Please proceed with signing from your end.",
+    createdAt: new Date(now.getTime() - 12 * 60 * 60 * 1000), // 12 hours ago
+    status: "read",
+    metadata: {
+      contractId: chanaContract.id,
+      tradeId: chanaTrade.id,
+      title: "Purchase Agreement - 50 Quintals Chana"
+    }
+  });
+  
+  await db.insert(messages).values({
+    chatId: sunitaAmitChat.id,
+    senderId: sunita.id,
+    type: "text",
+    content: "I'll sign the contract today. Regarding delivery, are you arranging pickup or should I arrange delivery?",
+    createdAt: new Date(now.getTime() - 4 * 60 * 60 * 1000), // 4 hours ago
+    status: "read",
+    metadata: {}
+  });
+  
+  // Create a group chat for Bikaner circle
+  const [bikanerGroupChat] = await db.insert(chats).values({
+    name: "Bikaner APMC Traders",
+    type: "group",
+    creatorId: sunita.id,
+    isActive: true,
+    lastMessageAt: new Date(now.getTime() - 12 * 60 * 60 * 1000), // 12 hours ago
+    metadata: {
+      circleId: bikaner.id,
+      description: "Group for traders operating in Bikaner APMC to discuss market trends and opportunities",
+      icon: "group-chat"
+    }
+  }).returning();
+  
+  // Add members to the group
+  await db.insert(chatMembers).values({
+    chatId: bikanerGroupChat.id,
+    userId: sunita.id,
+    role: "admin",
+    isActive: true
+  });
+  
+  await db.insert(chatMembers).values({
+    chatId: bikanerGroupChat.id,
+    userId: priya.id,
+    role: "member",
+    isActive: true
+  });
+  
+  await db.insert(chatMembers).values({
+    chatId: bikanerGroupChat.id,
+    userId: rajesh.id,
+    role: "member",
+    isActive: true
+  });
+  
+  // Add some group messages
+  await db.insert(messages).values({
+    chatId: bikanerGroupChat.id,
+    senderId: sunita.id,
+    type: "text",
+    content: "Welcome to the Bikaner APMC Traders group! This is a platform for us to discuss market trends, share price information, and collaborate on trading opportunities in our region.",
+    createdAt: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
+    status: "read",
+    metadata: {}
+  });
+  
+  await db.insert(messages).values({
+    chatId: bikanerGroupChat.id,
+    senderId: priya.id,
+    type: "text",
+    content: "Thanks for creating this group, Sunita. The wheat arrivals have increased significantly this week. Quality is excellent this season due to favorable weather conditions.",
+    createdAt: new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000), // 6 days ago
+    status: "read",
+    metadata: {}
+  });
+  
+  await db.insert(messages).values({
+    chatId: bikanerGroupChat.id,
+    senderId: rajesh.id,
+    type: "text",
+    content: "I'm looking for quality wheat suppliers from Bikaner region. If anyone has good quality wheat available, please connect with me directly.",
+    createdAt: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
+    status: "read",
+    metadata: {}
+  });
+  
+  await db.insert(messages).values({
+    chatId: bikanerGroupChat.id,
+    senderId: sunita.id,
+    type: "text",
+    content: "Latest price update: Chana prices have stabilized after the initial dip. Current range is ₹5250-5350 per quintal at the mandi.",
+    createdAt: new Date(now.getTime() - 12 * 60 * 60 * 1000), // 12 hours ago
+    status: "read",
+    metadata: {}
   });
   
   console.log("Seeding completed successfully!");
