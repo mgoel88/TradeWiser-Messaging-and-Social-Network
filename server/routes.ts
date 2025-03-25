@@ -731,13 +731,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      const data = kycRequestFormSchema.omit({ idNumberConfirm: true }).parse({
-        ...req.body,
-        userId
-      });
+      // Process document metadata
+      const { documents, idNumberConfirm, ...requestData } = req.body;
+      
+      // Convert document metadata to string for storage
+      // In a production environment, you would process actual file uploads here
+      const processedData = {
+        ...requestData,
+        userId,
+        documents: documents ? JSON.stringify(documents) : undefined
+      };
+      
+      const data = kycRequestFormSchema.omit({ idNumberConfirm: true }).parse(processedData);
       
       const kycRequest = await storage.createKycRequest(data);
-      return res.status(201).json({ kycRequest });
+      
+      console.log(`KYC request submitted with ${documents?.length || 0} document(s) for user ${userId}`);
+      
+      return res.status(201).json({ 
+        kycRequest,
+        message: "KYC request submitted successfully" 
+      });
     } catch (err) {
       return handleZodError(err, res);
     }
@@ -750,6 +764,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!kycRequest) {
         return res.status(404).json({ message: "No KYC request found" });
+      }
+      
+      // Parse document metadata if present
+      if (kycRequest.documents && Array.isArray(kycRequest.documents)) {
+        try {
+          // In case the first element is already a JSON string (stored as stringified JSON)
+          if (typeof kycRequest.documents[0] === 'string' && kycRequest.documents[0].startsWith('{')) {
+            kycRequest.documents = kycRequest.documents.map(doc => 
+              typeof doc === 'string' ? JSON.parse(doc) : doc
+            );
+          }
+        } catch (parseErr) {
+          console.log('Document parsing error:', parseErr);
+          // If parsing fails, just return the documents as is
+        }
       }
       
       return res.json({ kycRequest });
