@@ -159,6 +159,8 @@ export const en = {
     success: {
       login: 'Logged in successfully',
       register: 'Registered successfully',
+      logout: 'Logged out successfully',
+      logout_description: 'You have been logged out of your account.',
       profile_update: 'Profile updated successfully',
       post_created: 'Post created successfully',
       post_deleted: 'Post deleted successfully',

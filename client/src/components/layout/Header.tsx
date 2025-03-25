@@ -9,6 +9,8 @@ import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useLanguage } from "@/lib/i18n";
+import { LanguageSelector } from "@/components/layout/LanguageSelector";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,6 +23,7 @@ const Header = () => {
   const [_, setLocation] = useLocation();
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -38,13 +41,13 @@ const Header = () => {
       // Redirect to login page
       setLocation("/login");
       toast({
-        title: "Logged out successfully",
-        description: "You have been logged out of your account.",
+        title: t("messages.success.logout"),
+        description: t("messages.success.logout_description"),
       });
     } catch (error) {
       toast({
-        title: "Logout failed",
-        description: "An error occurred while logging out.",
+        title: t("messages.errors.logout_failed"),
+        description: t("messages.errors.connection_failed"),
         variant: "destructive",
       });
     }
@@ -115,6 +118,7 @@ const Header = () => {
             <Button variant="ghost" size="icon" className="p-2 text-gray-700 hover:text-primary rounded-full hover:bg-gray-100">
               <Bell className="h-5 w-5" />
             </Button>
+            <LanguageSelector />
             
             {isLoading ? (
               <div className="h-8 w-8 rounded-full bg-gray-200 animate-pulse"></div>
