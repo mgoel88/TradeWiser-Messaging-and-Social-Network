@@ -112,6 +112,12 @@ export const posts = pgTable("posts", {
   createdAt: timestamp("created_at").defaultNow()
 });
 
+// KYC Status enum
+export const kycStatusEnum = pgEnum('kyc_status', ['pending', 'in_review', 'approved', 'rejected']);
+
+// Document status enum
+export const documentStatusEnum = pgEnum('document_status', ['pending', 'verified', 'rejected', 'resubmit']);
+
 // KYC Verification requests
 export const kycRequests = pgTable("kyc_requests", {
   id: serial("id").primaryKey(),
@@ -121,9 +127,28 @@ export const kycRequests = pgTable("kyc_requests", {
   businessName: text("business_name"),
   businessType: text("business_type"),
   registrationNumber: text("registration_number"),
-  status: text("status").notNull().default("pending"), // pending, approved, rejected
+  status: kycStatusEnum("status").notNull().default('pending'),
+  verificationNotes: text("verification_notes"),
+  verifiedBy: integer("verified_by"),
+  verifiedAt: timestamp("verified_at"),
   documents: text("documents").array(),
-  createdAt: timestamp("created_at").defaultNow()
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+
+// KYC Documents 
+export const kycDocuments = pgTable("kyc_documents", {
+  id: serial("id").primaryKey(),
+  kycRequestId: integer("kyc_request_id").notNull(),
+  documentType: text("document_type").notNull(), // id_proof, address_proof, business_registration, etc.
+  documentName: text("document_name").notNull(),
+  fileUrl: text("file_url").notNull(),
+  fileType: text("file_type").notNull(), // pdf, jpg, png, etc.
+  fileSize: integer("file_size").notNull(), // in bytes
+  uploadedAt: timestamp("uploaded_at").defaultNow(),
+  status: documentStatusEnum("status").notNull().default('pending'),
+  verificationNotes: text("verification_notes"),
+  verifiedAt: timestamp("verified_at")
 });
 
 // Listing type enum
@@ -205,6 +230,7 @@ export const insertUserCommoditySchema = createInsertSchema(userCommodities).omi
 export const insertConnectionSchema = createInsertSchema(connections).omit({ id: true });
 export const insertPostSchema = createInsertSchema(posts).omit({ id: true });
 export const insertKycRequestSchema = createInsertSchema(kycRequests).omit({ id: true });
+export const insertKycDocumentSchema = createInsertSchema(kycDocuments).omit({ id: true });
 export const insertListingSchema = createInsertSchema(listings).omit({ id: true });
 export const insertOfferSchema = createInsertSchema(offers).omit({ id: true });
 export const insertTradeSchema = createInsertSchema(trades).omit({ id: true });
@@ -220,6 +246,7 @@ export type InsertUserCommodity = z.infer<typeof insertUserCommoditySchema>;
 export type InsertConnection = z.infer<typeof insertConnectionSchema>;
 export type InsertPost = z.infer<typeof insertPostSchema>;
 export type InsertKycRequest = z.infer<typeof insertKycRequestSchema>;
+export type InsertKycDocument = z.infer<typeof insertKycDocumentSchema>;
 export type InsertListing = z.infer<typeof insertListingSchema>;
 export type InsertOffer = z.infer<typeof insertOfferSchema>;
 export type InsertTrade = z.infer<typeof insertTradeSchema>;
@@ -234,6 +261,7 @@ export type UserCommodity = typeof userCommodities.$inferSelect;
 export type Connection = typeof connections.$inferSelect;
 export type Post = typeof posts.$inferSelect;
 export type KycRequest = typeof kycRequests.$inferSelect;
+export type KycDocument = typeof kycDocuments.$inferSelect;
 export type Listing = typeof listings.$inferSelect;
 export type Offer = typeof offers.$inferSelect;
 export type Trade = typeof trades.$inferSelect;
@@ -253,9 +281,14 @@ export const userLoginSchema = z.object({
 
 export const kycRequestFormSchema = insertKycRequestSchema.extend({
   idNumberConfirm: z.string(),
+  documentFiles: z.array(z.any()).optional(),
 }).refine(data => data.idNumber === data.idNumberConfirm, {
   message: "ID numbers do not match",
   path: ["idNumberConfirm"],
+});
+
+export const kycDocumentSchema = insertKycDocumentSchema.extend({
+  documentFile: z.any(),
 });
 
 export const listingFormSchema = insertListingSchema.extend({
@@ -281,5 +314,6 @@ export const offerFormSchema = insertOfferSchema.extend({
 export type RegisterUserInput = z.infer<typeof registerUserSchema>;
 export type UserLoginInput = z.infer<typeof userLoginSchema>;
 export type KycRequestFormInput = z.infer<typeof kycRequestFormSchema>;
+export type KycDocumentInput = z.infer<typeof kycDocumentSchema>;
 export type ListingFormInput = z.infer<typeof listingFormSchema>;
 export type OfferFormInput = z.infer<typeof offerFormSchema>;
