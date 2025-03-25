@@ -14,6 +14,8 @@ import Register from "@/pages/register";
 import Messages from "@/pages/messages";
 import Assets from "@/pages/assets";
 import MarketNews from "@/pages/market-news";
+import Marketplace from "@/pages/marketplace";
+import MarketplaceNew from "@/pages/marketplace-new";
 import { useQuery } from "@tanstack/react-query";
 import Header from "./components/layout/Header";
 import Footer from "./components/layout/Footer";
@@ -55,6 +57,8 @@ function Router() {
       <Route path="/messages" component={Messages} />
       <Route path="/assets" component={Assets} />
       <Route path="/market-news" component={MarketNews} />
+      <Route path="/marketplace" component={Marketplace} />
+      <Route path="/marketplace/new" component={MarketplaceNew} />
       <Route component={NotFound} />
     </Switch>
   );

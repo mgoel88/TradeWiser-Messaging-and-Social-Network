@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, Users, Wheat, MessageSquare, User, Warehouse, Menu, X, Newspaper, LineChart } from "lucide-react";
+import { Home, Users, Wheat, MessageSquare, User, Warehouse, Menu, X, Newspaper, LineChart, ShoppingCart } from "lucide-react";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -26,8 +26,8 @@ const MobileNavigation = () => {
   const primaryNavItems = [
     { path: "/", icon: Home, label: "Home" },
     { path: "/circles", icon: Users, label: "Circles" },
+    { path: "/marketplace", icon: ShoppingCart, label: "Market" },
     { path: "/messages", icon: MessageSquare, label: "Messages" },
-    { path: "/assets", icon: Warehouse, label: "Assets" },
     { path: "/profile", icon: User, label: "Profile" }
   ];
 
@@ -38,6 +38,7 @@ const MobileNavigation = () => {
     { path: "/circles", icon: Users, label: "Circles" },
     { path: "/assets", icon: Warehouse, label: "Assets" },
     { path: "/commodities", icon: Wheat, label: "Commodities" },
+    { path: "/marketplace", icon: ShoppingCart, label: "Marketplace" },
     { path: "/messages", icon: MessageSquare, label: "Messages" },
     { path: "/market-news", icon: Newspaper, label: "Market News" },
     { path: "/market-data", icon: LineChart, label: "Market Data" }
