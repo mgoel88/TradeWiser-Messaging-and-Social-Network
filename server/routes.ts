@@ -7,6 +7,7 @@ import MemoryStore from "memorystore";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { notifyNewListing, notifyOfferReceived, notifyTradeUpdate } from "./notifications";
+import { getRecommendedConnections, getComplementaryBusinessConnections, getCommodityConnectionRecommendations } from "./recommendations";
 import { 
   insertUserSchema, 
   userLoginSchema, 
@@ -962,6 +963,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Market recommendations endpoint
+  // Get market trading recommendations (price-based)
   app.get("/api/recommendations", async (req, res) => {
     try {
       // In a real implementation, this would be generated based on algorithms and data analysis
@@ -1853,6 +1855,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const updatedTrade = await storage.updateTradeRating(tradeId, rating, review || '', role);
       return res.json({ trade: updatedTrade });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Recommendations API Routes
+  app.get("/api/recommendations/connections", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const limit = parseInt(req.query.limit as string) || 10;
+      
+      const recommendedConnections = await getRecommendedConnections(userId, limit);
+      return res.json({ recommendations: recommendedConnections });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/recommendations/business", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const limit = parseInt(req.query.limit as string) || 10;
+      
+      const businessConnections = await getComplementaryBusinessConnections(userId, limit);
+      return res.json({ recommendations: businessConnections });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/recommendations/commodity/:commodityId", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const commodityId = parseInt(req.params.commodityId);
+      const limit = parseInt(req.query.limit as string) || 10;
+      
+      if (isNaN(commodityId)) {
+        return res.status(400).json({ message: "Invalid commodity ID" });
+      }
+      
+      // Verify the commodity exists
+      const commodity = await storage.getCommodity(commodityId);
+      if (!commodity) {
+        return res.status(404).json({ message: "Commodity not found" });
+      }
+      
+      const commodityConnections = await getCommodityConnectionRecommendations(userId, commodityId, limit);
+      return res.json({ 
+        recommendations: commodityConnections,
+        commodity
+      });
     } catch (err) {
       console.error(err);
       return res.status(500).json({ message: "Internal server error" });
