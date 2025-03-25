@@ -1,8 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { WebSocketServer } from 'ws';
-import { setupWebsocketServer } from './notifications';
+// WebSocket server is now initialized in routes.ts
 
 const app = express();
 app.use(express.json());
@@ -40,10 +39,6 @@ app.use((req, res, next) => {
 
 (async () => {
   const server = await registerRoutes(app);
-  
-  // Setup WebSocket server
-  const wss = new WebSocketServer({ server, path: '/ws' });
-  setupWebsocketServer(wss);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

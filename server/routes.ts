@@ -6,8 +6,9 @@ import session from "express-session";
 import MemoryStore from "memorystore";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
-import { notifyNewListing, notifyOfferReceived, notifyTradeUpdate } from "./notifications";
+import { notifyNewListing, notifyOfferReceived, notifyTradeUpdate, setupWebsocketServer } from "./notifications";
 import { getRecommendedConnections, getComplementaryBusinessConnections, getCommodityConnectionRecommendations } from "./recommendations";
+import { WebSocketServer } from "ws";
 import { 
   insertUserSchema, 
   userLoginSchema, 
@@ -21,7 +22,13 @@ import {
   insertOfferSchema, 
   insertTradeSchema,
   listingFormSchema,
-  offerFormSchema
+  offerFormSchema,
+  insertChatSchema,
+  insertChatMemberSchema,
+  insertMessageSchema,
+  messageFormSchema,
+  chatGroupFormSchema,
+  chatBroadcastFormSchema
 } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
@@ -2051,7 +2058,481 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  const httpServer = createServer(app);
+  // Chat API routes
+  app.get("/api/chats", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const chats = await storage.getUserChats(userId);
+      
+      // Get additional information about each chat
+      const chatsWithDetails = await Promise.all(
+        chats.map(async (chat) => {
+          const members = await storage.getChatMembers(chat.id);
+          const memberIds = members.map(m => m.userId);
+          const users = await Promise.all(memberIds.map(id => storage.getUser(id)));
+          
+          // Get unread message count
+          const unreadCount = await storage.getUnreadMessageCount(userId);
+          
+          // Get last message
+          const messages = await storage.getChatMessages(chat.id, 1);
+          const lastMessage = messages.length > 0 ? messages[0] : null;
+          
+          return {
+            ...chat,
+            members: members.map((member, i) => ({
+              ...member,
+              user: users[i] ? {
+                id: users[i]?.id,
+                name: users[i]?.name,
+                avatar: users[i]?.avatar
+              } : null
+            })),
+            unreadCount,
+            lastMessage
+          };
+        })
+      );
+      
+      return res.json({ chats: chatsWithDetails });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
 
+  app.get("/api/chats/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const chatId = parseInt(req.params.id);
+      
+      if (isNaN(chatId)) {
+        return res.status(400).json({ message: "Invalid chat ID" });
+      }
+      
+      const chat = await storage.getChat(chatId);
+      if (!chat) {
+        return res.status(404).json({ message: "Chat not found" });
+      }
+      
+      // Check if the user is a member of this chat
+      const member = await storage.getChatMember(chatId, userId);
+      if (!member) {
+        return res.status(403).json({ message: "Not a member of this chat" });
+      }
+      
+      // Get chat members with user details
+      const members = await storage.getChatMembers(chatId);
+      const memberIds = members.map(m => m.userId);
+      const users = await Promise.all(memberIds.map(id => storage.getUser(id)));
+      
+      // Mark messages as read when viewing the chat
+      await storage.markMessagesAsRead(chatId, userId);
+      
+      return res.json({
+        chat,
+        members: members.map((member, i) => ({
+          ...member,
+          user: users[i] ? {
+            id: users[i]?.id,
+            name: users[i]?.name,
+            avatar: users[i]?.avatar
+          } : null
+        }))
+      });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/chats/:id/messages", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const chatId = parseInt(req.params.id);
+      const limit = parseInt(req.query.limit as string) || 20;
+      const before = req.query.before ? parseInt(req.query.before as string) : undefined;
+      
+      if (isNaN(chatId)) {
+        return res.status(400).json({ message: "Invalid chat ID" });
+      }
+      
+      // Check if the user is a member of this chat
+      const member = await storage.getChatMember(chatId, userId);
+      if (!member) {
+        return res.status(403).json({ message: "Not a member of this chat" });
+      }
+      
+      const messages = await storage.getChatMessages(chatId, limit, before);
+      
+      // Get sender details for each message
+      const messageWithSenders = await Promise.all(
+        messages.map(async (message) => {
+          const sender = await storage.getUser(message.senderId);
+          return {
+            ...message,
+            sender: sender ? {
+              id: sender.id,
+              name: sender.name,
+              avatar: sender.avatar
+            } : null
+          };
+        })
+      );
+      
+      return res.json({ messages: messageWithSenders });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/chats", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      
+      // For direct chats, check if a chat already exists
+      if (req.body.type === 'direct' && req.body.recipientId) {
+        const recipientId = parseInt(req.body.recipientId);
+        
+        if (isNaN(recipientId)) {
+          return res.status(400).json({ message: "Invalid recipient ID" });
+        }
+        
+        // Check if recipient exists
+        const recipient = await storage.getUser(recipientId);
+        if (!recipient) {
+          return res.status(404).json({ message: "Recipient not found" });
+        }
+        
+        // Check if a direct chat already exists
+        const existingChat = await storage.getDirectChat(userId, recipientId);
+        if (existingChat) {
+          return res.json({ chat: existingChat, existing: true });
+        }
+        
+        // Create a new direct chat
+        const newChat = await storage.createChat({
+          type: 'direct',
+          creatorId: userId,
+          isActive: true,
+          lastMessageAt: new Date()
+        });
+        
+        // Add both users as chat members
+        await storage.addChatMember({
+          chatId: newChat.id,
+          userId: userId,
+          role: 'admin',
+          isActive: true,
+          joinedAt: new Date()
+        });
+        
+        await storage.addChatMember({
+          chatId: newChat.id,
+          userId: recipientId,
+          role: 'member',
+          isActive: true,
+          joinedAt: new Date()
+        });
+        
+        return res.status(201).json({ chat: newChat });
+      }
+      
+      // For group chats
+      if (req.body.type === 'group') {
+        const groupData = chatGroupFormSchema.parse({
+          ...req.body,
+          creatorId: userId
+        });
+        
+        // Create the group chat
+        const newChat = await storage.createChat(groupData);
+        
+        // Add creator as admin
+        await storage.addChatMember({
+          chatId: newChat.id,
+          userId: userId,
+          role: 'admin',
+          isActive: true,
+          joinedAt: new Date()
+        });
+        
+        // Add members if provided
+        if (req.body.members && Array.isArray(req.body.members)) {
+          for (const memberId of req.body.members) {
+            const id = parseInt(memberId);
+            if (!isNaN(id)) {
+              const member = await storage.getUser(id);
+              if (member) {
+                await storage.addChatMember({
+                  chatId: newChat.id,
+                  userId: id,
+                  role: 'member',
+                  isActive: true,
+                  joinedAt: new Date()
+                });
+              }
+            }
+          }
+        }
+        
+        return res.status(201).json({ chat: newChat });
+      }
+      
+      // For broadcast lists
+      if (req.body.type === 'broadcast') {
+        const broadcastData = chatBroadcastFormSchema.parse({
+          ...req.body,
+          creatorId: userId
+        });
+        
+        // Create the broadcast chat
+        const newChat = await storage.createChat(broadcastData);
+        
+        // Add creator as admin
+        await storage.addChatMember({
+          chatId: newChat.id,
+          userId: userId,
+          role: 'admin',
+          isActive: true,
+          joinedAt: new Date()
+        });
+        
+        // Add recipients if provided
+        if (req.body.recipients && Array.isArray(req.body.recipients)) {
+          for (const recipientId of req.body.recipients) {
+            const id = parseInt(recipientId);
+            if (!isNaN(id)) {
+              const recipient = await storage.getUser(id);
+              if (recipient) {
+                await storage.addChatMember({
+                  chatId: newChat.id,
+                  userId: id,
+                  role: 'member',
+                  isActive: true,
+                  joinedAt: new Date()
+                });
+              }
+            }
+          }
+        }
+        
+        return res.status(201).json({ chat: newChat });
+      }
+      
+      return res.status(400).json({ message: "Invalid chat type" });
+    } catch (err) {
+      return handleZodError(err, res);
+    }
+  });
+
+  app.post("/api/chats/:id/messages", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const chatId = parseInt(req.params.id);
+      
+      if (isNaN(chatId)) {
+        return res.status(400).json({ message: "Invalid chat ID" });
+      }
+      
+      // Check if the user is a member of this chat
+      const member = await storage.getChatMember(chatId, userId);
+      if (!member) {
+        return res.status(403).json({ message: "Not a member of this chat" });
+      }
+      
+      const messageData = messageFormSchema.parse({
+        ...req.body,
+        chatId,
+        senderId: userId
+      });
+      
+      const newMessage = await storage.createMessage(messageData);
+      
+      // Update chat's last message timestamp
+      await storage.updateChat(chatId, { lastMessageAt: new Date() });
+      
+      // Get sender details
+      const sender = await storage.getUser(userId);
+      
+      return res.status(201).json({ 
+        message: {
+          ...newMessage,
+          sender: {
+            id: sender?.id,
+            name: sender?.name,
+            avatar: sender?.avatar
+          }
+        } 
+      });
+    } catch (err) {
+      return handleZodError(err, res);
+    }
+  });
+
+  app.post("/api/chats/:id/members", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const chatId = parseInt(req.params.id);
+      const newMemberId = parseInt(req.body.userId);
+      
+      if (isNaN(chatId) || isNaN(newMemberId)) {
+        return res.status(400).json({ message: "Invalid IDs" });
+      }
+      
+      // Check if the user is an admin of this chat
+      const member = await storage.getChatMember(chatId, userId);
+      if (!member || member.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can add members" });
+      }
+      
+      // Check if the chat exists
+      const chat = await storage.getChat(chatId);
+      if (!chat) {
+        return res.status(404).json({ message: "Chat not found" });
+      }
+      
+      // Check if user to add exists
+      const userToAdd = await storage.getUser(newMemberId);
+      if (!userToAdd) {
+        return res.status(404).json({ message: "User to add not found" });
+      }
+      
+      // Check if user is already a member
+      const existingMember = await storage.getChatMember(chatId, newMemberId);
+      if (existingMember) {
+        if (!existingMember.isActive) {
+          // Reactivate the membership
+          await storage.updateChatMember(existingMember.id, { isActive: true });
+          return res.json({ message: "Member reactivated" });
+        }
+        return res.status(400).json({ message: "User is already a member of this chat" });
+      }
+      
+      // Add the new member
+      const newMember = await storage.addChatMember({
+        chatId,
+        userId: newMemberId,
+        role: 'member',
+        isActive: true,
+        joinedAt: new Date()
+      });
+      
+      return res.status(201).json({ member: newMember });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/chats/:id/members/:userId", isAuthenticated, async (req, res) => {
+    try {
+      const currentUserId = (req.user as any).id;
+      const chatId = parseInt(req.params.id);
+      const memberIdToRemove = parseInt(req.params.userId);
+      
+      if (isNaN(chatId) || isNaN(memberIdToRemove)) {
+        return res.status(400).json({ message: "Invalid IDs" });
+      }
+      
+      // Check if the chat exists
+      const chat = await storage.getChat(chatId);
+      if (!chat) {
+        return res.status(404).json({ message: "Chat not found" });
+      }
+      
+      // Get the role of the current user
+      const currentUserMember = await storage.getChatMember(chatId, currentUserId);
+      if (!currentUserMember) {
+        return res.status(403).json({ message: "Not a member of this chat" });
+      }
+      
+      // Users can remove themselves, or admins can remove others
+      if (currentUserId !== memberIdToRemove && currentUserMember.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can remove other members" });
+      }
+      
+      // For direct chats, don't allow removing the other person
+      if (chat.type === 'direct') {
+        return res.status(400).json({ message: "Cannot remove members from direct chats" });
+      }
+      
+      // Remove the member
+      const success = await storage.removeChatMember(chatId, memberIdToRemove);
+      if (!success) {
+        return res.status(500).json({ message: "Failed to remove member" });
+      }
+      
+      return res.json({ message: "Member removed successfully" });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/contacts", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      
+      // Get user connections to create contact list
+      const connections = await storage.getUserConnections(userId);
+      
+      // Get user details for connections
+      const contacts = await Promise.all(
+        connections.map(async (connection) => {
+          const contactId = connection.requesterId === userId ? connection.receiverId : connection.requesterId;
+          const contact = await storage.getUser(contactId);
+          
+          // Check if a direct chat exists with this contact
+          const chat = await storage.getDirectChat(userId, contactId);
+          
+          if (contact) {
+            return {
+              id: contact.id,
+              name: contact.name,
+              username: contact.username,
+              avatar: contact.avatar,
+              userType: contact.userType,
+              business: contact.business,
+              kycVerified: contact.kycVerified,
+              chatId: chat?.id
+            };
+          }
+          return null;
+        })
+      );
+      
+      return res.json({ contacts: contacts.filter(Boolean) });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/unread-messages", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      
+      // Get total unread count
+      const totalUnread = await storage.getUnreadMessageCount(userId);
+      
+      // Get unread counts by chat
+      const unreadByChat = await storage.getUnreadMessagesCountByChat(userId);
+      
+      return res.json({ totalUnread, unreadByChat });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  const httpServer = createServer(app);
+  
+  // Set up WebSocket server for real-time messaging
+  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  
+  setupWebsocketServer(wss);
+  
   return httpServer;
 }
