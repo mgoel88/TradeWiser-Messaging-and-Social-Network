@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useToast } from './use-toast';
+import { usePriceUpdatesStore, PriceData } from '@/stores/price-updates-store';
 
 export enum WebSocketStatus {
   CONNECTING = 'connecting',
@@ -12,6 +13,18 @@ interface WebSocketMessage {
   type: string;
   timestamp: string;
   [key: string]: any;
+}
+
+interface PriceUpdateMessage extends WebSocketMessage {
+  type: 'price_update';
+  commodityId: number;
+  circleId: number;
+  newPrice: number;
+  priceChange: number;
+  changePercentage: number;
+  changeDirection: 'up' | 'down' | 'stable';
+  quality?: string;
+  arrivals?: string;
 }
 
 export function useWebSocket() {
@@ -114,6 +127,9 @@ export function useWebSocket() {
   const handleMessage = (message: WebSocketMessage) => {
     console.log('Received WebSocket message:', message);
     
+    // Get priceUpdatesStore's addPriceUpdate function
+    const addPriceUpdate = usePriceUpdatesStore.getState().addPriceUpdate;
+    
     // Handle different message types
     switch (message.type) {
       case 'notification':
@@ -126,15 +142,35 @@ export function useWebSocket() {
         break;
         
       case 'price_update':
-        // Handle price updates
-        const priceChange = message.priceChange > 0 ? `+₹${message.priceChange}` : `-₹${Math.abs(message.priceChange)}`;
-        const description = `${message.changeDirection === 'up' ? '📈' : message.changeDirection === 'down' ? '📉' : '➡️'} ₹${message.newPrice} (${priceChange}) - ${message.changePercentage.toFixed(2)}%`;
+        // Convert WebSocket message to our PriceData format
+        const priceUpdateMsg = message as PriceUpdateMessage;
+        const priceData: PriceData = {
+          commodityId: priceUpdateMsg.commodityId,
+          circleId: priceUpdateMsg.circleId,
+          timestamp: priceUpdateMsg.timestamp,
+          price: priceUpdateMsg.newPrice,
+          priceChange: priceUpdateMsg.priceChange,
+          changePercentage: priceUpdateMsg.changePercentage,
+          changeDirection: priceUpdateMsg.changeDirection,
+          quality: priceUpdateMsg.quality,
+          arrivals: priceUpdateMsg.arrivals
+        };
+        
+        // Update the store with the new price data
+        addPriceUpdate(priceData);
+        
+        // Show toast notification for price change
+        const priceChangeText = priceData.priceChange > 0 
+          ? `+₹${priceData.priceChange}` 
+          : `-₹${Math.abs(priceData.priceChange)}`;
+          
+        const description = `${priceData.changeDirection === 'up' ? '📈' : priceData.changeDirection === 'down' ? '📉' : '➡️'} ₹${priceData.price} (${priceChangeText}) - ${priceData.changePercentage.toFixed(2)}%`;
         
         toast({
-          title: `Price update for commodity #${message.commodityId}`,
+          title: `Price update for commodity #${priceData.commodityId}`,
           description,
-          variant: message.changeDirection === 'up' ? 'default' : 
-                 message.changeDirection === 'down' ? 'destructive' : null
+          variant: priceData.changeDirection === 'up' ? 'default' : 
+                 priceData.changeDirection === 'down' ? 'destructive' : null
         });
         break;
         

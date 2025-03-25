@@ -11,10 +11,12 @@ import {
   TabsList,
   TabsTrigger
 } from "@/components/ui/tabs";
-import { Wheat, Loader, Search, ArrowUp, ArrowDown, BarChart } from "lucide-react";
+import { Wheat, Loader, Search, ArrowUp, ArrowDown, BarChart, LineChart } from "lucide-react";
 import CommodityItem from "@/components/commodity/CommodityItem";
 import { AnimatedSkeleton, AnimatedCardSkeleton } from "@/components/ui/animated-skeleton";
 import { COMMODITY_CATEGORIES } from "@/lib/constants";
+import { PriceTicker } from "@/components/commodity/PriceTicker";
+import { RecentPriceUpdates } from "@/components/commodity/RecentPriceUpdates";
 
 const Commodities: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -61,70 +63,92 @@ const Commodities: React.FC = () => {
           </div>
         </div>
         
+        {/* Price Ticker */}
+        <div className="mb-6">
+          <h2 className="font-heading font-semibold text-lg flex items-center mb-3">
+            <LineChart className="h-5 w-5 mr-2 text-primary" />
+            Live Price Updates
+          </h2>
+          <PriceTicker autoScroll={true} scrollInterval={3000} className="mb-4 shadow-sm" />
+        </div>
+        
         {/* Trending Commodities */}
-        <Card className="mb-6">
-          <CardHeader className="pb-2">
-            <h2 className="font-heading font-semibold text-lg flex items-center">
-              <BarChart className="h-5 w-5 mr-2 text-primary" />
-              Trending Commodities
-            </h2>
-          </CardHeader>
-          <CardContent>
-            {trendingLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {[...Array(4)].map((_, i) => (
-                  <AnimatedCardSkeleton 
-                    key={i}
-                    variant="shimmer"
-                    imageHeight={50}
-                    lines={2}
-                    hasFooter={false}
-                    className="h-28"
-                  />
-                ))}
-              </div>
-            ) : trendingData?.trendingCommodities && trendingData.trendingCommodities.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {trendingData.trendingCommodities.map((item: any) => (
-                  <Card key={`trending-${item.commodityId}`} className="overflow-hidden">
-                    <div className="bg-gray-50 p-3 flex items-center border-b">
-                      <div className="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-700">
-                        <Wheat className="h-4 w-4" />
-                      </div>
-                      <div className="ml-3">
-                        <Link href={`/commodities/${item.commodityId}`}>
-                          <p className="font-medium text-sm hover:underline cursor-pointer">{item.commodity?.name || "Commodity"}</p>
-                        </Link>
-                        <p className="text-xs text-gray-500">{item.circleName || "Circle"}</p>
-                      </div>
-                    </div>
-                    <div className="p-3">
-                      <div className="flex justify-between items-center mb-2">
-                        <p className="text-sm text-gray-600">Current Price:</p>
-                        <p className="font-semibold font-data">₹{item.currentPrice}/quintal</p>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <p className="text-sm text-gray-600">Change:</p>
-                        <p className={`font-semibold font-data ${item.priceChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {item.priceChange >= 0 ? (
-                            <ArrowUp className="inline h-3 w-3 mr-1" />
-                          ) : (
-                            <ArrowDown className="inline h-3 w-3 mr-1" />
-                          )}
-                          {Math.abs(item.priceChange).toFixed(1)}%
-                        </p>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-6">
-                <p className="text-gray-500">No trending commodities available at the moment.</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+          <div className="lg:col-span-2">
+            <Card className="h-full">
+              <CardHeader className="pb-2">
+                <h2 className="font-heading font-semibold text-lg flex items-center">
+                  <BarChart className="h-5 w-5 mr-2 text-primary" />
+                  Trending Commodities
+                </h2>
+              </CardHeader>
+              <CardContent>
+                {trendingLoading ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {[...Array(4)].map((_, i) => (
+                      <AnimatedCardSkeleton 
+                        key={i}
+                        variant="shimmer"
+                        imageHeight={50}
+                        lines={2}
+                        hasFooter={false}
+                        className="h-28"
+                      />
+                    ))}
+                  </div>
+                ) : trendingData?.trendingCommodities && trendingData.trendingCommodities.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {trendingData.trendingCommodities.slice(0, 4).map((item: any) => (
+                      <Card key={`trending-${item.commodityId}`} className="overflow-hidden">
+                        <div className="bg-gray-50 p-3 flex items-center border-b">
+                          <div className="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-700">
+                            <Wheat className="h-4 w-4" />
+                          </div>
+                          <div className="ml-3">
+                            <Link href={`/commodities/${item.commodityId}`}>
+                              <p className="font-medium text-sm hover:underline cursor-pointer">{item.commodity?.name || "Commodity"}</p>
+                            </Link>
+                            <p className="text-xs text-gray-500">{item.circleName || "Circle"}</p>
+                          </div>
+                        </div>
+                        <div className="p-3">
+                          <div className="flex justify-between items-center mb-2">
+                            <p className="text-sm text-gray-600">Current Price:</p>
+                            <p className="font-semibold font-data">₹{item.currentPrice}/quintal</p>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <p className="text-sm text-gray-600">Change:</p>
+                            <p className={`font-semibold font-data ${item.priceChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {item.priceChange >= 0 ? (
+                                <ArrowUp className="inline h-3 w-3 mr-1" />
+                              ) : (
+                                <ArrowDown className="inline h-3 w-3 mr-1" />
+                              )}
+                              {Math.abs(item.priceChange).toFixed(1)}%
+                            </p>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <p className="text-gray-500">No trending commodities available at the moment.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+          
+          <div>
+            <RecentPriceUpdates 
+              title="Recent Market Updates" 
+              limit={6} 
+              showRefresh={true} 
+              className="h-full"
+            />
+          </div>
+        </div>
         
         {/* Commodities list */}
         <Tabs defaultValue="all" className="space-y-6">
