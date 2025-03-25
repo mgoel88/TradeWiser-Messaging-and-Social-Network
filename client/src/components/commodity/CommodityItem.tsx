@@ -26,6 +26,10 @@ const CommodityItem: React.FC<CommodityItemProps> = ({
 
   // Get icon based on commodity category or default to wheat
   const getCommodityIcon = () => {
+    if (!commodity || !commodity.icon) {
+      return '🌾'; // Default to wheat emoji if no icon
+    }
+    
     switch (commodity.icon) {
       case 'seedling':
         return '🌱';
