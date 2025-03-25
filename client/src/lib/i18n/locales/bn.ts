@@ -10,6 +10,7 @@ export const bn = {
     delete: 'মুছুন',
     edit: 'সম্পাদনা করুন',
     search: 'খুঁজুন',
+    search_placeholder: 'পণ্য, সার্কেল, বা মানুষ খুঁজুন',
     filter: 'ফিল্টার',
     sort: 'সাজান',
     more: 'আরও',
@@ -181,7 +182,9 @@ export const bn = {
       kyc_required: 'এই কাজের জন্য KYC যাচাইকরণ প্রয়োজন',
       already_exists: 'সম্পদ ইতিমধ্যেই বিদ্যমান',
       password_mismatch: 'পাসওয়ার্ড মিলছে না',
-      connection_failed: 'সার্ভারের সাথে সংযোগ করতে পারেনি'
+      connection_failed: 'সার্ভারের সাথে সংযোগ করতে পারেনি',
+      search_not_implemented: 'অনুসন্ধান বৈশিষ্ট্য বাস্তবায়িত হয়নি',
+      logout_failed: 'লগআউট ব্যর্থ হয়েছে'
     }
   }
 };

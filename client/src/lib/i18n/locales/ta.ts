@@ -10,6 +10,7 @@ export const ta = {
     delete: 'நீக்கு',
     edit: 'திருத்து',
     search: 'தேடு',
+    search_placeholder: 'பொருட்கள், வட்டங்கள், அல்லது மக்களைத் தேடு',
     filter: 'வடிகட்டு',
     sort: 'வரிசைப்படுத்து',
     more: 'மேலும்',
@@ -181,7 +182,9 @@ export const ta = {
       kyc_required: 'இந்த செயலுக்கு KYC சரிபார்ப்பு தேவை',
       already_exists: 'ஆதாரம் ஏற்கனவே உள்ளது',
       password_mismatch: 'கடவுச்சொற்கள் பொருந்தவில்லை',
-      connection_failed: 'சர்வருடன் இணைக்க முடியவில்லை'
+      connection_failed: 'சர்வருடன் இணைக்க முடியவில்லை',
+      search_not_implemented: 'தேடல் அம்சம் செயல்படுத்தப்படவில்லை',
+      logout_failed: 'வெளியேறுதல் தோல்வியடைந்தது'
     }
   }
 };
