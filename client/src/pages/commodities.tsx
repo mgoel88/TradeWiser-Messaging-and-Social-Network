@@ -76,16 +76,16 @@ const Commodities: React.FC = () => {
             ) : trendingData?.trendingCommodities && trendingData.trendingCommodities.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {trendingData.trendingCommodities.map((item: any) => (
-                  <Card key={item.id} className="overflow-hidden">
+                  <Card key={`trending-${item.commodityId}`} className="overflow-hidden">
                     <div className="bg-gray-50 p-3 flex items-center border-b">
                       <div className="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-700">
                         <Wheat className="h-4 w-4" />
                       </div>
                       <div className="ml-3">
-                        <Link href={`/commodities/${item.commodity.id}`}>
-                          <p className="font-medium text-sm hover:underline cursor-pointer">{item.commodity.name}</p>
+                        <Link href={`/commodities/${item.commodityId}`}>
+                          <p className="font-medium text-sm hover:underline cursor-pointer">{item.commodity?.name || "Commodity"}</p>
                         </Link>
-                        <p className="text-xs text-gray-500">{item.circleName}</p>
+                        <p className="text-xs text-gray-500">{item.circleName || "Circle"}</p>
                       </div>
                     </div>
                     <div className="p-3">
