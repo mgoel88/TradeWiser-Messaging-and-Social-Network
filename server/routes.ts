@@ -28,7 +28,13 @@ import {
   insertMessageSchema,
   messageFormSchema,
   chatGroupFormSchema,
-  chatBroadcastFormSchema
+  chatBroadcastFormSchema,
+  insertMessageTemplateSchema,
+  messageTemplateSchema,
+  buyRequestTemplateSchema,
+  sellOfferTemplateSchema,
+  negotiationTemplateSchema,
+  templatedMessageFormSchema
 } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
@@ -2537,6 +2543,353 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Message Template routes
+  
+  // Get user's message templates
+  app.get("/api/message-templates/user/:userId", isAuthenticated, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const templateType = req.query.type as string;
+      
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+      
+      // Check if user is requesting their own templates
+      if ((req.user as any).id !== userId) {
+        return res.status(403).json({ message: "You can only access your own templates" });
+      }
+      
+      let templates;
+      if (templateType) {
+        templates = await storage.getUserTemplates(userId, templateType);
+      } else {
+        templates = await storage.getUserTemplates(userId);
+      }
+      
+      return res.json({ templates });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+  
+  // Get default templates by type
+  app.get("/api/message-templates/defaults", async (req, res) => {
+    try {
+      const templateType = req.query.type as string;
+      
+      if (!templateType) {
+        return res.status(400).json({ message: "Template type is required" });
+      }
+      
+      const templates = await storage.getDefaultTemplates(templateType);
+      return res.json({ templates });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+  
+  // Create a new message template
+  app.post("/api/message-templates", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      
+      // Use the appropriate schema based on template type
+      let templateData;
+      switch (req.body.templateType) {
+        case 'buy_request':
+          templateData = buyRequestTemplateSchema.parse({
+            ...req.body,
+            userId
+          });
+          break;
+        case 'sell_offer':
+          templateData = sellOfferTemplateSchema.parse({
+            ...req.body,
+            userId
+          });
+          break;
+        case 'negotiation':
+          templateData = negotiationTemplateSchema.parse({
+            ...req.body,
+            userId
+          });
+          break;
+        default:
+          templateData = messageTemplateSchema.parse({
+            ...req.body,
+            userId
+          });
+      }
+      
+      const template = await storage.createMessageTemplate(templateData);
+      return res.status(201).json({ template });
+    } catch (err) {
+      return handleZodError(err, res);
+    }
+  });
+  
+  // Update a message template
+  app.patch("/api/message-templates/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const templateId = parseInt(req.params.id);
+      
+      if (isNaN(templateId)) {
+        return res.status(400).json({ message: "Invalid template ID" });
+      }
+      
+      // Check if template exists and belongs to user
+      const existingTemplate = await storage.getMessageTemplate(templateId);
+      if (!existingTemplate) {
+        return res.status(404).json({ message: "Template not found" });
+      }
+      
+      if (existingTemplate.userId !== userId) {
+        return res.status(403).json({ message: "You can only update your own templates" });
+      }
+      
+      // Only update allowed fields
+      const allowedFields = [
+        "name", "template", "templateType", "defaultValues", 
+        "isDefault", "isFavorite"
+      ];
+      
+      const updates: Record<string, any> = {};
+      for (const field of allowedFields) {
+        if (req.body[field] !== undefined) {
+          updates[field] = req.body[field];
+        }
+      }
+      
+      const updatedTemplate = await storage.updateMessageTemplate(templateId, updates);
+      return res.json({ template: updatedTemplate });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+  
+  // Delete a message template
+  app.delete("/api/message-templates/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const templateId = parseInt(req.params.id);
+      
+      if (isNaN(templateId)) {
+        return res.status(400).json({ message: "Invalid template ID" });
+      }
+      
+      // Check if template exists and belongs to user
+      const existingTemplate = await storage.getMessageTemplate(templateId);
+      if (!existingTemplate) {
+        return res.status(404).json({ message: "Template not found" });
+      }
+      
+      if (existingTemplate.userId !== userId) {
+        return res.status(403).json({ message: "You can only delete your own templates" });
+      }
+      
+      const success = await storage.deleteMessageTemplate(templateId);
+      if (!success) {
+        return res.status(500).json({ message: "Failed to delete template" });
+      }
+      
+      return res.json({ message: "Template deleted successfully" });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+  
+  // Increment template usage count
+  app.post("/api/message-templates/:id/increment-usage", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const templateId = parseInt(req.params.id);
+      
+      if (isNaN(templateId)) {
+        return res.status(400).json({ message: "Invalid template ID" });
+      }
+      
+      // Check if template exists
+      const existingTemplate = await storage.getMessageTemplate(templateId);
+      if (!existingTemplate) {
+        return res.status(404).json({ message: "Template not found" });
+      }
+      
+      // Allow incrementing usage for any template
+      const updatedTemplate = await storage.incrementTemplateUsage(templateId);
+      return res.json({ template: updatedTemplate });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+  
+  // Send templated message
+  app.post("/api/messages", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const { chatId, content, type = 'text', templateId, recipientId, commodityId, circleId, listingId } = req.body;
+      
+      // If no chatId is provided but recipientId is, create or get a direct chat
+      let actualChatId = chatId;
+      if (!actualChatId && recipientId) {
+        // Check if a direct chat already exists between these users
+        const existingChat = await storage.getDirectChat(userId, recipientId);
+        
+        if (existingChat) {
+          actualChatId = existingChat.id;
+        } else {
+          // Create a new direct chat
+          const newChat = await storage.createChat({
+            creatorId: userId,
+            type: 'direct'
+          });
+          
+          // Add both users to the chat
+          await storage.addChatMember({
+            chatId: newChat.id,
+            userId,
+            role: 'creator'
+          });
+          
+          await storage.addChatMember({
+            chatId: newChat.id,
+            userId: recipientId,
+            role: 'member'
+          });
+          
+          actualChatId = newChat.id;
+        }
+      }
+      
+      if (!actualChatId) {
+        return res.status(400).json({ message: "Chat ID or recipient ID is required" });
+      }
+      
+      // Check if user is a member of this chat
+      const chatMember = await storage.getChatMember(actualChatId, userId);
+      if (!chatMember) {
+        return res.status(403).json({ message: "You are not a member of this chat" });
+      }
+      
+      // Build message metadata based on message type
+      let metadata: any = {};
+      
+      if (type === 'template' || type === 'buy_request' || type === 'sell_offer') {
+        metadata = {
+          commodityId,
+          listingId,
+          circleId
+        };
+      }
+      
+      // Create the message
+      const message = await storage.createMessage({
+        chatId: actualChatId,
+        senderId: userId,
+        type,
+        content,
+        templateId,
+        metadata
+      });
+      
+      return res.status(201).json({ message });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+  
+  // Send broadcast message to all connections
+  app.post("/api/messages/broadcast", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const { content, type = 'text', templateId, commodityId, circleId, listingId } = req.body;
+      
+      // Get all user's connections
+      const connections = await storage.getUserConnections(userId);
+      const sentMessages = [];
+      
+      // Build message metadata
+      let metadata: any = {};
+      if (type === 'template' || type === 'buy_request' || type === 'sell_offer') {
+        metadata = {
+          commodityId,
+          listingId,
+          circleId
+        };
+      }
+      
+      // For each connection, send a message
+      for (const connection of connections) {
+        if (connection.status !== 'accepted') continue;
+        
+        const recipientId = connection.requesterId === userId 
+          ? connection.receiverId 
+          : connection.requesterId;
+        
+        // Check if a direct chat already exists between these users
+        const existingChat = await storage.getDirectChat(userId, recipientId);
+        let chatId;
+        
+        if (existingChat) {
+          chatId = existingChat.id;
+        } else {
+          // Create a new direct chat
+          const newChat = await storage.createChat({
+            creatorId: userId,
+            type: 'direct'
+          });
+          
+          // Add both users to the chat
+          await storage.addChatMember({
+            chatId: newChat.id,
+            userId,
+            role: 'creator'
+          });
+          
+          await storage.addChatMember({
+            chatId: newChat.id,
+            userId: recipientId,
+            role: 'member'
+          });
+          
+          chatId = newChat.id;
+        }
+        
+        // Create the message
+        try {
+          const message = await storage.createMessage({
+            chatId,
+            senderId: userId,
+            type,
+            content,
+            templateId,
+            metadata
+          });
+          
+          sentMessages.push(message);
+        } catch (err) {
+          console.error(`Failed to send message to user ${recipientId}:`, err);
+        }
+      }
+      
+      return res.status(201).json({ 
+        success: true, 
+        totalSent: sentMessages.length,
+        totalConnections: connections.length
+      });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+  
   const httpServer = createServer(app);
   
   // Set up WebSocket server for real-time messaging
