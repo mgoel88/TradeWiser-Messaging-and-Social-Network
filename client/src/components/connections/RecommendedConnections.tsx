@@ -42,7 +42,7 @@ const RecommendedConnections = () => {
 
   // Fetch general recommendations
   const { data: generalRecommendations, isLoading: isGeneralLoading } = useQuery({
-    queryKey: ['/api/recommendations'],
+    queryKey: ['/api/recommendations/connections'],
     queryFn: getQueryFn({ on401: 'returnNull' })
   });
 
@@ -68,7 +68,7 @@ const RecommendedConnections = () => {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/recommendations'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/recommendations/connections'] });
       queryClient.invalidateQueries({ queryKey: ['/api/recommendations/business'] });
       
       toast({
