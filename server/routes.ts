@@ -6,6 +6,7 @@ import session from "express-session";
 import MemoryStore from "memorystore";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
+import { notifyNewListing, notifyOfferReceived, notifyTradeUpdate } from "./notifications";
 import { 
   insertUserSchema, 
   userLoginSchema, 
