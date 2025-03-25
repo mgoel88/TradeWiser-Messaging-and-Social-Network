@@ -137,6 +137,33 @@ export interface IStorage {
   getUserTrades(userId: number, role?: string): Promise<Trade[]>;
   getTradesByStatus(status: string): Promise<Trade[]>;
   updateTradeRating(id: number, rating: number, review: string, role: string): Promise<Trade | undefined>;
+
+  // Chat operations
+  getChat(id: number): Promise<Chat | undefined>;
+  createChat(chat: InsertChat): Promise<Chat>;
+  updateChat(id: number, chat: Partial<Chat>): Promise<Chat | undefined>;
+  getUserChats(userId: number): Promise<Chat[]>;
+  getDirectChat(userId1: number, userId2: number): Promise<Chat | undefined>;
+  getUserGroups(userId: number): Promise<Chat[]>;
+  getUserBroadcasts(userId: number): Promise<Chat[]>;
+  getChatsByType(userId: number, type: 'direct' | 'group' | 'broadcast'): Promise<Chat[]>;
+  
+  // Chat Member operations
+  getChatMember(chatId: number, userId: number): Promise<ChatMember | undefined>;
+  addChatMember(chatMember: InsertChatMember): Promise<ChatMember>;
+  removeChatMember(chatId: number, userId: number): Promise<boolean>;
+  updateChatMember(id: number, chatMember: Partial<ChatMember>): Promise<ChatMember | undefined>;
+  getChatMembers(chatId: number): Promise<ChatMember[]>;
+  
+  // Message operations
+  getMessage(id: number): Promise<Message | undefined>;
+  createMessage(message: InsertMessage): Promise<Message>;
+  updateMessage(id: number, message: Partial<Message>): Promise<Message | undefined>;
+  markMessageAsRead(messageId: number, userId: number): Promise<Message | undefined>;
+  markMessagesAsRead(chatId: number, userId: number): Promise<boolean>;
+  getChatMessages(chatId: number, limit?: number, before?: number): Promise<Message[]>;
+  getUnreadMessageCount(userId: number): Promise<number>;
+  getUnreadMessagesCountByChat(userId: number): Promise<{chatId: number, count: number}[]>;
 }
 
 // Database storage implementation

@@ -217,6 +217,57 @@ export const trades = pgTable("trades", {
   updatedAt: timestamp("updated_at").defaultNow()
 });
 
+// Message type enum
+export const messageTypeEnum = pgEnum('message_type', ['text', 'image', 'audio', 'document', 'location', 'contact', 'system']);
+
+// Chat type enum
+export const chatTypeEnum = pgEnum('chat_type', ['direct', 'group', 'broadcast']);
+
+// Chats (conversations, groups, broadcasts) table
+export const chats = pgTable("chats", {
+  id: serial("id").primaryKey(),
+  type: chatTypeEnum("type").notNull(), // direct, group, broadcast
+  name: text("name"), // Only used for groups and broadcasts
+  description: text("description"),
+  creatorId: integer("creator_id").notNull(), // User who created the group/broadcast
+  avatarUrl: text("avatar_url"),
+  isActive: boolean("is_active").default(true),
+  metadata: jsonb("metadata"), // For any additional data like group settings
+  lastMessageAt: timestamp("last_message_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+
+// Chat members junction table
+export const chatMembers = pgTable("chat_members", {
+  id: serial("id").primaryKey(),
+  chatId: integer("chat_id").notNull(),
+  userId: integer("user_id").notNull(),
+  role: text("role").default("member"), // admin, member
+  isActive: boolean("is_active").default(true),
+  joinedAt: timestamp("joined_at").defaultNow(),
+  lastReadMessageId: integer("last_read_message_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+
+// Messages table
+export const messages = pgTable("messages", {
+  id: serial("id").primaryKey(),
+  chatId: integer("chat_id").notNull(),
+  senderId: integer("sender_id").notNull(),
+  type: messageTypeEnum("type").notNull().default('text'),
+  content: text("content").notNull(),
+  metadata: jsonb("metadata"), // For extra data like image dimensions, document size, etc.
+  replyToId: integer("reply_to_id"),
+  isEdited: boolean("is_edited").default(false),
+  isDeleted: boolean("is_deleted").default(false),
+  deliveredAt: timestamp("delivered_at"),
+  readBy: integer("read_by").array(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
 export const insertCircleSchema = createInsertSchema(circles).omit({ id: true });
@@ -232,6 +283,9 @@ export const insertKycDocumentSchema = createInsertSchema(kycDocuments).omit({ i
 export const insertListingSchema = createInsertSchema(listings).omit({ id: true });
 export const insertOfferSchema = createInsertSchema(offers).omit({ id: true });
 export const insertTradeSchema = createInsertSchema(trades).omit({ id: true });
+export const insertChatSchema = createInsertSchema(chats).omit({ id: true });
+export const insertChatMemberSchema = createInsertSchema(chatMembers).omit({ id: true });
+export const insertMessageSchema = createInsertSchema(messages).omit({ id: true });
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -248,6 +302,9 @@ export type InsertKycDocument = z.infer<typeof insertKycDocumentSchema>;
 export type InsertListing = z.infer<typeof insertListingSchema>;
 export type InsertOffer = z.infer<typeof insertOfferSchema>;
 export type InsertTrade = z.infer<typeof insertTradeSchema>;
+export type InsertChat = z.infer<typeof insertChatSchema>;
+export type InsertChatMember = z.infer<typeof insertChatMemberSchema>;
+export type InsertMessage = z.infer<typeof insertMessageSchema>;
 
 export type User = typeof users.$inferSelect;
 export type Circle = typeof circles.$inferSelect;
@@ -263,6 +320,9 @@ export type KycDocument = typeof kycDocuments.$inferSelect;
 export type Listing = typeof listings.$inferSelect;
 export type Offer = typeof offers.$inferSelect;
 export type Trade = typeof trades.$inferSelect;
+export type Chat = typeof chats.$inferSelect;
+export type ChatMember = typeof chatMembers.$inferSelect;
+export type Message = typeof messages.$inferSelect;
 
 // Extended Schemas for form validation
 export const registerUserSchema = insertUserSchema.extend({
@@ -317,9 +377,33 @@ export const offerFormSchema = insertOfferSchema.extend({
   path: ["confirmQuantity"],
 });
 
+// Chat and message form schemas
+export const messageFormSchema = insertMessageSchema.extend({
+  chatId: z.number(),
+  content: z.string().min(1, "Message cannot be empty"),
+  type: z.enum(['text', 'image', 'audio', 'document', 'location', 'contact', 'system']).default('text'),
+});
+
+export const chatGroupFormSchema = insertChatSchema.extend({
+  name: z.string().min(3, "Group name must be at least 3 characters"),
+  description: z.string().optional(),
+  memberIds: z.array(z.number()).min(1, "Group must have at least one member"),
+  type: z.literal('group'),
+});
+
+export const chatBroadcastFormSchema = insertChatSchema.extend({
+  name: z.string().min(3, "Broadcast list name must be at least 3 characters"),
+  description: z.string().optional(),
+  recipientIds: z.array(z.number()).min(1, "Broadcast list must have at least one recipient"),
+  type: z.literal('broadcast'),
+});
+
 export type RegisterUserInput = z.infer<typeof registerUserSchema>;
 export type UserLoginInput = z.infer<typeof userLoginSchema>;
 export type KycRequestFormInput = z.infer<typeof kycRequestFormSchema>;
 export type KycDocumentInput = z.infer<typeof kycDocumentSchema>;
 export type ListingFormInput = z.infer<typeof listingFormSchema>;
 export type OfferFormInput = z.infer<typeof offerFormSchema>;
+export type MessageFormInput = z.infer<typeof messageFormSchema>;
+export type ChatGroupFormInput = z.infer<typeof chatGroupFormSchema>;
+export type ChatBroadcastFormInput = z.infer<typeof chatBroadcastFormSchema>;
