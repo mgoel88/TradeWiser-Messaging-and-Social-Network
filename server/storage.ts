@@ -209,16 +209,41 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(circles).where(eq(circles.district, district));
   }
 
-  async getNearbyCircles(lat: number, lng: number, radiusKm: number): Promise<Circle[]> {
+  async getNearbyCircles(lat: number, lng: number, radiusKm: number): Promise<(Circle & { distance: number })[]> {
     // This is a simplified approach - in production, would use PostGIS or similar
     // Get all circles and filter by approximate distance
     const allCircles = await db.select().from(circles);
-    return allCircles.filter((circle) => {
-      const distance = Math.sqrt(
-        Math.pow(circle.latitude - lat, 2) + Math.pow(circle.longitude - lng, 2)
-      ) * 111; // Rough conversion to km
-      return distance <= radiusKm;
-    });
+    
+    // Calculate distance and add it to each circle within range
+    const nearbyCircles = allCircles
+      .map((circle) => {
+        // Calculate distance using Haversine formula for better accuracy
+        const distance = this.calculateDistance(lat, lng, circle.latitude, circle.longitude);
+        return { ...circle, distance };
+      })
+      .filter((circle) => circle.distance <= radiusKm)
+      // Sort by distance (closest first)
+      .sort((a, b) => a.distance - b.distance);
+    
+    return nearbyCircles;
+  }
+  
+  // Helper method to calculate distance between two points using Haversine formula
+  private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371; // Radius of the earth in km
+    const dLat = this.deg2rad(lat2 - lat1);
+    const dLon = this.deg2rad(lon2 - lon1);
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(this.deg2rad(lat1)) * Math.cos(this.deg2rad(lat2)) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2); 
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+    const distance = R * c; // Distance in km
+    return Math.round(distance * 10) / 10; // Round to 1 decimal place
+  }
+  
+  private deg2rad(deg: number): number {
+    return deg * (Math.PI/180);
   }
 
   // Asset operations

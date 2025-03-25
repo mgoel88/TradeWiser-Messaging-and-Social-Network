@@ -69,6 +69,7 @@ export const circleCommodities = pgTable("circle_commodities", {
   currentPrice: integer("current_price"), // in INR per quintal
   priceChange: real("price_change"), // percentage change
   arrivals: real("arrivals"), // in tons
+  tradingVolume: real("trading_volume"), // Monthly trading volume in tons
   quality: text("quality"),
   updatedAt: timestamp("updated_at").defaultNow()
 });
