@@ -11,6 +11,8 @@ import Commodities from "@/pages/commodities";
 import KYC from "@/pages/kyc";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
+import Messages from "@/pages/messages";
+import Assets from "@/pages/assets";
 import { useQuery } from "@tanstack/react-query";
 import Header from "./components/layout/Header";
 import Footer from "./components/layout/Footer";
@@ -48,6 +50,8 @@ function Router() {
       <Route path="/circles" component={Circles} />
       <Route path="/commodities" component={Commodities} />
       <Route path="/kyc" component={KYC} />
+      <Route path="/messages" component={Messages} />
+      <Route path="/assets" component={Assets} />
       <Route component={NotFound} />
     </Switch>
   );
