@@ -150,8 +150,14 @@ export default function CreateListingPage() {
         <CardContent>
           <Tabs defaultValue="sell" onValueChange={handleTabChange}>
             <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="sell">I want to Sell</TabsTrigger>
-              <TabsTrigger value="buy">I want to Buy</TabsTrigger>
+              <TabsTrigger value="sell">
+                <TrendingDown size={16} className="mr-2" />
+                I want to Sell
+              </TabsTrigger>
+              <TabsTrigger value="buy">
+                <TrendingUp size={16} className="mr-2" />
+                I want to Buy
+              </TabsTrigger>
             </TabsList>
             
             <Form {...form}>
@@ -163,7 +169,10 @@ export default function CreateListingPage() {
                     name="commodityId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Commodity</FormLabel>
+                        <FormLabel className="flex items-center gap-1">
+                          <BarChart2 size={16} className="mr-1" />
+                          Commodity
+                        </FormLabel>
                         <Select 
                           onValueChange={(value) => field.onChange(parseInt(value))}
                           defaultValue={field.value?.toString()}
@@ -195,7 +204,10 @@ export default function CreateListingPage() {
                     name="circleId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Circle</FormLabel>
+                        <FormLabel className="flex items-center gap-1">
+                          <CircleIcon size={16} className="mr-1" />
+                          Circle
+                        </FormLabel>
                         <Select 
                           onValueChange={(value) => field.onChange(parseInt(value))}
                           defaultValue={field.value?.toString()}
@@ -227,7 +239,10 @@ export default function CreateListingPage() {
                     name="quantity"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Quantity (kg)</FormLabel>
+                        <FormLabel className="flex items-center gap-1">
+                          <Scale size={16} className="mr-1" />
+                          Quantity (kg)
+                        </FormLabel>
                         <FormControl>
                           <Input 
                             type="number" 
@@ -249,7 +264,10 @@ export default function CreateListingPage() {
                     name="minQuantity"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Minimum Order (kg)</FormLabel>
+                        <FormLabel className="flex items-center gap-1">
+                          <Scale size={16} className="mr-1" />
+                          Minimum Order (kg)
+                        </FormLabel>
                         <FormControl>
                           <Input 
                             type="number"
@@ -274,7 +292,10 @@ export default function CreateListingPage() {
                     name="pricePerUnit"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Price Per Kg (₹)</FormLabel>
+                        <FormLabel className="flex items-center gap-1">
+                          <DollarSign size={16} className="mr-1" />
+                          Price Per Kg (₹)
+                        </FormLabel>
                         <FormControl>
                           <Input 
                             type="number"
@@ -293,7 +314,10 @@ export default function CreateListingPage() {
                     name="quality"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Quality</FormLabel>
+                        <FormLabel className="flex items-center gap-1">
+                          <BarChart size={16} className="mr-1" />
+                          Quality
+                        </FormLabel>
                         <Select 
                           onValueChange={field.onChange} 
                           defaultValue={field.value}
@@ -324,7 +348,10 @@ export default function CreateListingPage() {
                     name="availableFrom"
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
-                        <FormLabel>Available From</FormLabel>
+                        <FormLabel className="flex items-center gap-1">
+                          <CalendarIcon size={16} className="mr-1" />
+                          Available From
+                        </FormLabel>
                         <Popover>
                           <PopoverTrigger asChild>
                             <FormControl>
@@ -367,7 +394,10 @@ export default function CreateListingPage() {
                     name="availableTo"
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
-                        <FormLabel>Available Until</FormLabel>
+                        <FormLabel className="flex items-center gap-1">
+                          <CalendarIcon size={16} className="mr-1" />
+                          Available Until
+                        </FormLabel>
                         <Popover>
                           <PopoverTrigger asChild>
                             <FormControl>
@@ -411,7 +441,10 @@ export default function CreateListingPage() {
                   name="description"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Description (Optional)</FormLabel>
+                      <FormLabel className="flex items-center gap-1">
+                        <Building2 size={16} className="mr-1" />
+                        Description (Optional)
+                      </FormLabel>
                       <FormControl>
                         <Textarea
                           placeholder="Provide additional details about your listing"
@@ -427,8 +460,18 @@ export default function CreateListingPage() {
                   )}
                 />
                 
-                <Button type="submit" className="w-full">
-                  Create Listing
+                <Button type="submit" className="w-full flex items-center gap-2 justify-center">
+                  {listingType === 'sell' ? (
+                    <>
+                      <TrendingDown className="h-4 w-4" />
+                      Create Sell Listing
+                    </>
+                  ) : (
+                    <>
+                      <TrendingUp className="h-4 w-4" />
+                      Create Buy Listing
+                    </>
+                  )}
                 </Button>
               </form>
             </Form>
