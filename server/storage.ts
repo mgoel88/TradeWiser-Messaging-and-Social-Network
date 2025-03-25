@@ -9,9 +9,13 @@ import {
   connections, Connection, InsertConnection,
   posts, Post, InsertPost,
   kycRequests, KycRequest, InsertKycRequest,
+  kycDocuments, KycDocument, InsertKycDocument,
   listings, Listing, InsertListing,
   offers, Offer, InsertOffer,
-  trades, Trade, InsertTrade
+  trades, Trade, InsertTrade,
+  chats, Chat, InsertChat,
+  chatMembers, ChatMember, InsertChatMember,
+  messages, Message, InsertMessage
 } from "@shared/schema";
 
 import { db } from "./db";
@@ -925,6 +929,336 @@ export class DatabaseStorage implements IStorage {
       .returning();
     
     return updatedTrade || undefined;
+  }
+
+  // Chat operations
+  async getChat(id: number): Promise<Chat | undefined> {
+    const [chat] = await db.select().from(chats).where(eq(chats.id, id));
+    return chat || undefined;
+  }
+
+  async createChat(chat: InsertChat): Promise<Chat> {
+    const [newChat] = await db.insert(chats).values(chat).returning();
+    return newChat;
+  }
+
+  async updateChat(id: number, chat: Partial<Chat>): Promise<Chat | undefined> {
+    const [updatedChat] = await db
+      .update(chats)
+      .set(chat)
+      .where(eq(chats.id, id))
+      .returning();
+    return updatedChat || undefined;
+  }
+
+  async getUserChats(userId: number): Promise<Chat[]> {
+    // Get all chats where the user is a member
+    const userChatMemberships = await db
+      .select()
+      .from(chatMembers)
+      .where(eq(chatMembers.userId, userId));
+
+    const chatIds = userChatMemberships.map(member => member.chatId);
+    
+    if (chatIds.length === 0) return [];
+    
+    // Get all chats with their last message time
+    const allChats = await db
+      .select()
+      .from(chats)
+      .where(sql`${chats.id} IN (${chatIds.join(',')})`)
+      .orderBy(desc(chats.lastMessageAt));
+    
+    return allChats;
+  }
+
+  async getDirectChat(userId1: number, userId2: number): Promise<Chat | undefined> {
+    // Get all direct chats for the first user
+    const user1Chats = await this.getChatsByType(userId1, 'direct');
+    
+    if (user1Chats.length === 0) return undefined;
+    
+    // Find direct chats that also have the second user
+    for (const chat of user1Chats) {
+      const chatMembers = await this.getChatMembers(chat.id);
+      
+      if (chatMembers.length === 2 && chatMembers.some(member => member.userId === userId2)) {
+        return chat;
+      }
+    }
+    
+    return undefined;
+  }
+
+  async getUserGroups(userId: number): Promise<Chat[]> {
+    return this.getChatsByType(userId, 'group');
+  }
+
+  async getUserBroadcasts(userId: number): Promise<Chat[]> {
+    return this.getChatsByType(userId, 'broadcast');
+  }
+
+  async getChatsByType(userId: number, type: 'direct' | 'group' | 'broadcast'): Promise<Chat[]> {
+    // Get all chats where the user is a member
+    const userChatMemberships = await db
+      .select()
+      .from(chatMembers)
+      .where(eq(chatMembers.userId, userId));
+
+    const chatIds = userChatMemberships.map(member => member.chatId);
+    
+    if (chatIds.length === 0) return [];
+    
+    // Get chats filtered by type
+    const filteredChats = await db
+      .select()
+      .from(chats)
+      .where(
+        and(
+          sql`${chats.id} IN (${chatIds.join(',')})`,
+          eq(chats.type, type)
+        )
+      )
+      .orderBy(desc(chats.lastMessageAt));
+    
+    return filteredChats;
+  }
+  
+  // Chat Member operations
+  async getChatMember(chatId: number, userId: number): Promise<ChatMember | undefined> {
+    const [member] = await db
+      .select()
+      .from(chatMembers)
+      .where(
+        and(
+          eq(chatMembers.chatId, chatId),
+          eq(chatMembers.userId, userId)
+        )
+      );
+    return member || undefined;
+  }
+
+  async addChatMember(chatMember: InsertChatMember): Promise<ChatMember> {
+    const [newMember] = await db
+      .insert(chatMembers)
+      .values(chatMember)
+      .returning();
+    return newMember;
+  }
+
+  async removeChatMember(chatId: number, userId: number): Promise<boolean> {
+    // Set isActive to false instead of actually deleting
+    const result = await db
+      .update(chatMembers)
+      .set({ isActive: false })
+      .where(
+        and(
+          eq(chatMembers.chatId, chatId),
+          eq(chatMembers.userId, userId)
+        )
+      );
+    return !!result;
+  }
+
+  async updateChatMember(id: number, chatMember: Partial<ChatMember>): Promise<ChatMember | undefined> {
+    const [updatedMember] = await db
+      .update(chatMembers)
+      .set(chatMember)
+      .where(eq(chatMembers.id, id))
+      .returning();
+    return updatedMember || undefined;
+  }
+
+  async getChatMembers(chatId: number): Promise<ChatMember[]> {
+    return await db
+      .select()
+      .from(chatMembers)
+      .where(
+        and(
+          eq(chatMembers.chatId, chatId),
+          eq(chatMembers.isActive, true)
+        )
+      );
+  }
+  
+  // Message operations
+  async getMessage(id: number): Promise<Message | undefined> {
+    const [message] = await db
+      .select()
+      .from(messages)
+      .where(eq(messages.id, id));
+    return message || undefined;
+  }
+
+  async createMessage(message: InsertMessage): Promise<Message> {
+    // Create the message
+    const [newMessage] = await db
+      .insert(messages)
+      .values(message)
+      .returning();
+    
+    // Update last message time on chat
+    await db
+      .update(chats)
+      .set({ lastMessageAt: new Date() })
+      .where(eq(chats.id, message.chatId));
+    
+    return newMessage;
+  }
+
+  async updateMessage(id: number, message: Partial<Message>): Promise<Message | undefined> {
+    // Always set isEdited to true when updating a message
+    const update = { ...message, isEdited: true };
+    
+    const [updatedMessage] = await db
+      .update(messages)
+      .set(update)
+      .where(eq(messages.id, id))
+      .returning();
+    return updatedMessage || undefined;
+  }
+
+  async markMessageAsRead(messageId: number, userId: number): Promise<Message | undefined> {
+    const [message] = await db
+      .select()
+      .from(messages)
+      .where(eq(messages.id, messageId));
+    
+    if (!message) return undefined;
+    
+    // Add user to readBy array if not already there
+    if (!message.readBy || !message.readBy.includes(userId)) {
+      const readBy = message.readBy ? [...message.readBy, userId] : [userId];
+      
+      const [updatedMessage] = await db
+        .update(messages)
+        .set({ readBy })
+        .where(eq(messages.id, messageId))
+        .returning();
+      
+      return updatedMessage;
+    }
+    
+    return message;
+  }
+
+  async markMessagesAsRead(chatId: number, userId: number): Promise<boolean> {
+    // Get all unread messages in this chat
+    const unreadMessages = await db
+      .select()
+      .from(messages)
+      .where(
+        and(
+          eq(messages.chatId, chatId),
+          sql`NOT (${messages.readBy} @> ARRAY[${userId}]::integer[])`
+        )
+      );
+    
+    if (unreadMessages.length === 0) return true;
+    
+    // Mark each message as read
+    for (const message of unreadMessages) {
+      await this.markMessageAsRead(message.id, userId);
+    }
+    
+    // Update the last read message in chat members
+    const lastMessageId = Math.max(...unreadMessages.map(m => m.id));
+    
+    const [member] = await db
+      .select()
+      .from(chatMembers)
+      .where(
+        and(
+          eq(chatMembers.chatId, chatId),
+          eq(chatMembers.userId, userId)
+        )
+      );
+    
+    if (member) {
+      await db
+        .update(chatMembers)
+        .set({ lastReadMessageId: lastMessageId })
+        .where(eq(chatMembers.id, member.id));
+    }
+    
+    return true;
+  }
+
+  async getChatMessages(chatId: number, limit: number = 50, before?: number): Promise<Message[]> {
+    let query = db
+      .select()
+      .from(messages)
+      .where(
+        and(
+          eq(messages.chatId, chatId),
+          eq(messages.isDeleted, false)
+        )
+      );
+    
+    if (before) {
+      query = query.where(sql`${messages.id} < ${before}`);
+    }
+    
+    return await query
+      .orderBy(desc(messages.createdAt))
+      .limit(limit);
+  }
+
+  async getUnreadMessageCount(userId: number): Promise<number> {
+    // Get all chats the user is a member of
+    const userChats = await this.getUserChats(userId);
+    let totalUnread = 0;
+    
+    // Calculate unread messages in each chat
+    for (const chat of userChats) {
+      const chatMember = await this.getChatMember(chat.id, userId);
+      if (!chatMember) continue;
+      
+      const query = db
+        .select({ count: sql<number>`count(*)` })
+        .from(messages)
+        .where(
+          and(
+            eq(messages.chatId, chat.id),
+            eq(messages.isDeleted, false),
+            sql`NOT (${messages.readBy} @> ARRAY[${userId}]::integer[])`
+          )
+        );
+      
+      const [result] = await query;
+      totalUnread += Number(result?.count || 0);
+    }
+    
+    return totalUnread;
+  }
+
+  async getUnreadMessagesCountByChat(userId: number): Promise<{chatId: number, count: number}[]> {
+    // Get all chats the user is a member of
+    const userChats = await this.getUserChats(userId);
+    const result: {chatId: number, count: number}[] = [];
+    
+    // Calculate unread messages in each chat
+    for (const chat of userChats) {
+      const query = db
+        .select({ count: sql<number>`count(*)` })
+        .from(messages)
+        .where(
+          and(
+            eq(messages.chatId, chat.id),
+            eq(messages.isDeleted, false),
+            sql`NOT (${messages.readBy} @> ARRAY[${userId}]::integer[])`
+          )
+        );
+      
+      const [countResult] = await query;
+      const count = Number(countResult?.count || 0);
+      
+      if (count > 0) {
+        result.push({ chatId: chat.id, count });
+      }
+    }
+    
+    return result;
   }
 }
 
