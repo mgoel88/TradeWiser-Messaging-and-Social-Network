@@ -218,7 +218,7 @@ export const trades = pgTable("trades", {
 });
 
 // Message type enum
-export const messageTypeEnum = pgEnum('message_type', ['text', 'image', 'audio', 'document', 'location', 'contact', 'system']);
+export const messageTypeEnum = pgEnum('message_type', ['text', 'image', 'audio', 'document', 'location', 'contact', 'system', 'template', 'trade_request', 'buy_request', 'sell_offer']);
 
 // Chat type enum
 export const chatTypeEnum = pgEnum('chat_type', ['direct', 'group', 'broadcast']);
@@ -251,6 +251,25 @@ export const chatMembers = pgTable("chat_members", {
   updatedAt: timestamp("updated_at").defaultNow()
 });
 
+// Trade template type enum
+export const templateTypeEnum = pgEnum('template_type', ['buy_request', 'sell_offer', 'negotiation', 'custom']);
+
+// Message templates table
+export const messageTemplates = pgTable("message_templates", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  name: text("name").notNull(),
+  templateType: templateTypeEnum("template_type").notNull(),
+  template: text("template").notNull(),
+  defaultValues: jsonb("default_values"),
+  isDefault: boolean("is_default").default(false),
+  isFavorite: boolean("is_favorite").default(false),
+  usageCount: integer("usage_count").default(0),
+  lastUsedAt: timestamp("last_used_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+
 // Messages table
 export const messages = pgTable("messages", {
   id: serial("id").primaryKey(),
@@ -259,6 +278,10 @@ export const messages = pgTable("messages", {
   type: messageTypeEnum("type").notNull().default('text'),
   content: text("content").notNull(),
   metadata: jsonb("metadata"), // For extra data like image dimensions, document size, etc.
+  templateId: integer("template_id"), // Reference to message template if this is a template-based message
+  commodityId: integer("commodity_id"), // For trade-related messages
+  listingId: integer("listing_id"), // For messages related to listings
+  offerId: integer("offer_id"), // For messages related to offers
   replyToId: integer("reply_to_id"),
   isEdited: boolean("is_edited").default(false),
   isDeleted: boolean("is_deleted").default(false),
@@ -285,6 +308,7 @@ export const insertOfferSchema = createInsertSchema(offers).omit({ id: true });
 export const insertTradeSchema = createInsertSchema(trades).omit({ id: true });
 export const insertChatSchema = createInsertSchema(chats).omit({ id: true });
 export const insertChatMemberSchema = createInsertSchema(chatMembers).omit({ id: true });
+export const insertMessageTemplateSchema = createInsertSchema(messageTemplates).omit({ id: true });
 export const insertMessageSchema = createInsertSchema(messages).omit({ id: true });
 
 // Types
@@ -304,6 +328,7 @@ export type InsertOffer = z.infer<typeof insertOfferSchema>;
 export type InsertTrade = z.infer<typeof insertTradeSchema>;
 export type InsertChat = z.infer<typeof insertChatSchema>;
 export type InsertChatMember = z.infer<typeof insertChatMemberSchema>;
+export type InsertMessageTemplate = z.infer<typeof insertMessageTemplateSchema>;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
 
 export type User = typeof users.$inferSelect;
@@ -322,6 +347,7 @@ export type Offer = typeof offers.$inferSelect;
 export type Trade = typeof trades.$inferSelect;
 export type Chat = typeof chats.$inferSelect;
 export type ChatMember = typeof chatMembers.$inferSelect;
+export type MessageTemplate = typeof messageTemplates.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 
 // Extended Schemas for form validation
@@ -381,7 +407,70 @@ export const offerFormSchema = insertOfferSchema.extend({
 export const messageFormSchema = insertMessageSchema.extend({
   chatId: z.number(),
   content: z.string().min(1, "Message cannot be empty"),
-  type: z.enum(['text', 'image', 'audio', 'document', 'location', 'contact', 'system']).default('text'),
+  type: z.enum(['text', 'image', 'audio', 'document', 'location', 'contact', 'system', 'template', 'trade_request', 'buy_request', 'sell_offer']).default('text'),
+  templateId: z.number().optional(),
+  commodityId: z.number().optional(),
+  listingId: z.number().optional(),
+  offerId: z.number().optional(),
+});
+
+// Template message schemas
+export const messageTemplateSchema = insertMessageTemplateSchema.extend({
+  name: z.string().min(3, "Template name must be at least 3 characters"),
+  templateType: z.enum(['buy_request', 'sell_offer', 'negotiation', 'custom']),
+  template: z.string().min(10, "Template content must be at least 10 characters"),
+});
+
+// Buy request template schema
+export const buyRequestTemplateSchema = messageTemplateSchema.extend({
+  templateType: z.literal('buy_request'),
+  defaultValues: z.object({
+    commodityName: z.string().optional(),
+    commodityId: z.number().optional(),
+    quantity: z.number().optional(),
+    unit: z.string().optional(),
+    pricePerUnit: z.number().optional(),
+    quality: z.string().optional(),
+    deliveryTerms: z.string().optional(),
+    paymentTerms: z.string().optional(),
+    location: z.string().optional(),
+    validityPeriod: z.string().optional(),
+    additionalRequirements: z.string().optional(),
+  }).optional(),
+});
+
+// Sell offer template schema
+export const sellOfferTemplateSchema = messageTemplateSchema.extend({
+  templateType: z.literal('sell_offer'),
+  defaultValues: z.object({
+    commodityName: z.string().optional(),
+    commodityId: z.number().optional(),
+    quantity: z.number().optional(),
+    unit: z.string().optional(),
+    pricePerUnit: z.number().optional(),
+    quality: z.string().optional(),
+    qualitySpecs: z.record(z.string(), z.string()).optional(),
+    deliveryTerms: z.string().optional(),
+    paymentTerms: z.string().optional(),
+    discounts: z.record(z.string(), z.string()).optional(),
+    location: z.string().optional(),
+    availableFrom: z.string().optional(),
+    availableTo: z.string().optional(),
+    samplesAvailable: z.boolean().optional(),
+    certification: z.string().optional(),
+  }).optional(),
+});
+
+// Negotiation template schema
+export const negotiationTemplateSchema = messageTemplateSchema.extend({
+  templateType: z.literal('negotiation'),
+  defaultValues: z.object({
+    counterOffer: z.number().optional(),
+    proposedQuantity: z.number().optional(),
+    proposedDeliveryDate: z.string().optional(),
+    proposedPaymentTerms: z.string().optional(),
+    additionalTerms: z.string().optional(),
+  }).optional(),
 });
 
 export const chatGroupFormSchema = insertChatSchema.extend({
@@ -398,6 +487,17 @@ export const chatBroadcastFormSchema = insertChatSchema.extend({
   type: z.literal('broadcast'),
 });
 
+// Template message form
+export const templatedMessageFormSchema = z.object({
+  chatId: z.number(),
+  templateId: z.number(),
+  templateType: z.enum(['buy_request', 'sell_offer', 'negotiation', 'custom']),
+  values: z.record(z.string(), z.any()),
+  commodityId: z.number().optional(),
+  listingId: z.number().optional(),
+  offerId: z.number().optional(),
+});
+
 export type RegisterUserInput = z.infer<typeof registerUserSchema>;
 export type UserLoginInput = z.infer<typeof userLoginSchema>;
 export type KycRequestFormInput = z.infer<typeof kycRequestFormSchema>;
@@ -405,5 +505,10 @@ export type KycDocumentInput = z.infer<typeof kycDocumentSchema>;
 export type ListingFormInput = z.infer<typeof listingFormSchema>;
 export type OfferFormInput = z.infer<typeof offerFormSchema>;
 export type MessageFormInput = z.infer<typeof messageFormSchema>;
+export type MessageTemplateInput = z.infer<typeof messageTemplateSchema>;
+export type BuyRequestTemplateInput = z.infer<typeof buyRequestTemplateSchema>;
+export type SellOfferTemplateInput = z.infer<typeof sellOfferTemplateSchema>;
+export type NegotiationTemplateInput = z.infer<typeof negotiationTemplateSchema>;
+export type TemplatedMessageInput = z.infer<typeof templatedMessageFormSchema>;
 export type ChatGroupFormInput = z.infer<typeof chatGroupFormSchema>;
 export type ChatBroadcastFormInput = z.infer<typeof chatBroadcastFormSchema>;

@@ -15,11 +15,12 @@ import {
   trades, Trade, InsertTrade,
   chats, Chat, InsertChat,
   chatMembers, ChatMember, InsertChatMember,
-  messages, Message, InsertMessage
+  messages, Message, InsertMessage,
+  messageTemplates, MessageTemplate, InsertMessageTemplate
 } from "@shared/schema";
 
 import { db } from "./db";
-import { eq, and, or, desc, sql } from "drizzle-orm";
+import { eq, and, or, desc, asc, gt, not, sql } from "drizzle-orm";
 
 // Storage interface for all data operations
 export interface IStorage {
@@ -168,6 +169,15 @@ export interface IStorage {
   getChatMessages(chatId: number, limit?: number, before?: number): Promise<Message[]>;
   getUnreadMessageCount(userId: number): Promise<number>;
   getUnreadMessagesCountByChat(userId: number): Promise<{chatId: number, count: number}[]>;
+  
+  // Message Template operations
+  getMessageTemplate(id: number): Promise<MessageTemplate | undefined>;
+  createMessageTemplate(template: InsertMessageTemplate): Promise<MessageTemplate>;
+  updateMessageTemplate(id: number, template: Partial<MessageTemplate>): Promise<MessageTemplate | undefined>;
+  deleteMessageTemplate(id: number): Promise<boolean>;
+  getUserTemplates(userId: number, templateType?: string): Promise<MessageTemplate[]>;
+  getDefaultTemplates(templateType: string): Promise<MessageTemplate[]>;
+  incrementTemplateUsage(id: number): Promise<MessageTemplate | undefined>;
 }
 
 // Database storage implementation
@@ -1259,6 +1269,76 @@ export class DatabaseStorage implements IStorage {
     }
     
     return result;
+  }
+  
+  // Message Template operations
+  async getMessageTemplate(id: number): Promise<MessageTemplate | undefined> {
+    const [template] = await db
+      .select()
+      .from(messageTemplates)
+      .where(eq(messageTemplates.id, id));
+    return template || undefined;
+  }
+
+  async createMessageTemplate(template: InsertMessageTemplate): Promise<MessageTemplate> {
+    const [newTemplate] = await db
+      .insert(messageTemplates)
+      .values(template)
+      .returning();
+    return newTemplate;
+  }
+
+  async updateMessageTemplate(id: number, template: Partial<MessageTemplate>): Promise<MessageTemplate | undefined> {
+    const [updatedTemplate] = await db
+      .update(messageTemplates)
+      .set(template)
+      .where(eq(messageTemplates.id, id))
+      .returning();
+    return updatedTemplate || undefined;
+  }
+
+  async deleteMessageTemplate(id: number): Promise<boolean> {
+    const result = await db
+      .delete(messageTemplates)
+      .where(eq(messageTemplates.id, id));
+    return !!result.rowCount && result.rowCount > 0;
+  }
+
+  async getUserTemplates(userId: number, templateType?: string): Promise<MessageTemplate[]> {
+    let query = db
+      .select()
+      .from(messageTemplates)
+      .where(eq(messageTemplates.userId, userId))
+      .orderBy(desc(messageTemplates.usageCount));
+    
+    if (templateType) {
+      query = query.where(eq(messageTemplates.templateType, templateType));
+    }
+    
+    return await query;
+  }
+
+  async getDefaultTemplates(templateType: string): Promise<MessageTemplate[]> {
+    return await db
+      .select()
+      .from(messageTemplates)
+      .where(and(
+        eq(messageTemplates.isDefault, true),
+        eq(messageTemplates.templateType, templateType)
+      ))
+      .orderBy(asc(messageTemplates.id));
+  }
+
+  async incrementTemplateUsage(id: number): Promise<MessageTemplate | undefined> {
+    const [template] = await db
+      .update(messageTemplates)
+      .set({
+        usageCount: sql`${messageTemplates.usageCount} + 1`,
+        lastUsedAt: new Date()
+      })
+      .where(eq(messageTemplates.id, id))
+      .returning();
+    return template || undefined;
   }
 }
 
