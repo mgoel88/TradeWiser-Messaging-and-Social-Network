@@ -20,6 +20,7 @@ import { useQuery } from "@tanstack/react-query";
 import Header from "./components/layout/Header";
 import Footer from "./components/layout/Footer";
 import MobileNavigation from "./components/layout/MobileNavigation";
+import { NotificationsProvider } from "./components/notifications";
 
 function Router() {
   const [location, setLocation] = useLocation();
@@ -70,11 +71,13 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {!isAuthPage && <Header />}
-      <Router />
-      {!isAuthPage && <Footer />}
-      {!isAuthPage && <MobileNavigation />}
-      <Toaster />
+      <NotificationsProvider>
+        {!isAuthPage && <Header />}
+        <Router />
+        {!isAuthPage && <Footer />}
+        {!isAuthPage && <MobileNavigation />}
+        <Toaster />
+      </NotificationsProvider>
     </QueryClientProvider>
   );
 }
