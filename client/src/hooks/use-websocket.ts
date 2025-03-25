@@ -121,7 +121,7 @@ export function useWebSocket() {
           title: message.title,
           description: message.message,
           variant: message.priority === 'high' ? 'destructive' : 
-                  message.priority === 'medium' ? 'default' : 'secondary'
+                  message.priority === 'medium' ? 'default' : null
         });
         break;
         
@@ -133,7 +133,8 @@ export function useWebSocket() {
         toast({
           title: `Price update for commodity #${message.commodityId}`,
           description,
-          variant: message.changeDirection === 'up' ? 'default' : message.changeDirection === 'down' ? 'destructive' : 'secondary'
+          variant: message.changeDirection === 'up' ? 'default' : 
+                 message.changeDirection === 'down' ? 'destructive' : null
         });
         break;
         
@@ -161,7 +162,7 @@ export function useWebSocket() {
           title: 'Trade update',
           description: `Trade #${message.tradeId} status changed to ${message.status}`,
           variant: message.status === 'completed' ? 'default' : 
-                  message.status === 'cancelled' ? 'destructive' : 'secondary'
+                  message.status === 'cancelled' ? 'destructive' : null
         });
         break;
         
@@ -170,7 +171,7 @@ export function useWebSocket() {
         toast({
           title: `Circle #${message.circleId} update`,
           description: `${message.updateType} - ${JSON.stringify(message.data)}`,
-          variant: 'secondary'
+          variant: 'default'
         });
         break;
         
