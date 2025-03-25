@@ -43,6 +43,16 @@ interface FeedItemProps {
 }
 
 const FeedItem: React.FC<FeedItemProps> = ({ post }) => {
+  // Check if post or necessary properties are undefined
+  if (!post || !post.user) {
+    return (
+      <Card className="mb-6 overflow-hidden">
+        <CardContent className="p-4">
+          <p className="text-gray-500">Post data unavailable</p>
+        </CardContent>
+      </Card>
+    );
+  }
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
