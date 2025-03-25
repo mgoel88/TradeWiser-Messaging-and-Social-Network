@@ -217,8 +217,45 @@ export const trades = pgTable("trades", {
   updatedAt: timestamp("updated_at").defaultNow()
 });
 
+// Contract status enum
+export const contractStatusEnum = pgEnum('contract_status', ['draft', 'pending', 'signed', 'active', 'completed', 'cancelled', 'disputed']);
+
+// Trade contract schema for smart contracts generated from conversations
+export const tradeContracts = pgTable("trade_contracts", {
+  id: serial("id").primaryKey(),
+  contractNumber: text("contract_number").notNull().unique(), // Unique identifier for the contract
+  name: text("name").notNull(), // Contract name
+  buyerId: integer("buyer_id").notNull(), // Buyer user ID
+  sellerId: integer("seller_id").notNull(), // Seller user ID
+  chatId: integer("chat_id").notNull(), // Reference to the chat where this contract was created
+  messageId: integer("message_id"), // Optional reference to specific message that initiated the contract
+  tradeId: integer("trade_id"), // Optional reference to a trade if one exists
+  commodityId: integer("commodity_id").notNull(), // Commodity being traded
+  commodityName: text("commodity_name").notNull(), // Name of commodity for quick reference
+  quantity: integer("quantity").notNull(), // Quantity of the commodity
+  unit: text("unit").notNull().default("kg"), // Unit of measurement (kg, ton, etc)
+  pricePerUnit: integer("price_per_unit").notNull(), // Price per unit
+  totalAmount: integer("total_amount").notNull(), // Total contract value
+  quality: text("quality").notNull(), // Quality specifications
+  qualityParams: jsonb("quality_params"), // Detailed quality parameters as JSON
+  deliveryTerms: text("delivery_terms").notNull(), // Delivery terms
+  deliveryLocation: text("delivery_location").notNull(), // Delivery location
+  deliveryDate: date("delivery_date"), // Expected delivery date
+  paymentTerms: text("payment_terms").notNull(), // Payment terms
+  additionalTerms: text("additional_terms"), // Any additional terms
+  buyerSignature: boolean("buyer_signature").default(false), // Buyer has signed
+  sellerSignature: boolean("seller_signature").default(false), // Seller has signed
+  status: contractStatusEnum("status").notNull().default('draft'), // Contract status
+  contractPdf: text("contract_pdf"), // URL to the generated PDF
+  sharedLink: text("shared_link"), // Shareable contract link
+  whatsappShared: boolean("whatsapp_shared").default(false), // Flag if shared on WhatsApp
+  createdBy: integer("created_by").notNull(), // User who created the contract
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+
 // Message type enum
-export const messageTypeEnum = pgEnum('message_type', ['text', 'image', 'audio', 'document', 'location', 'contact', 'system', 'template', 'trade_request', 'buy_request', 'sell_offer']);
+export const messageTypeEnum = pgEnum('message_type', ['text', 'image', 'audio', 'document', 'location', 'contact', 'system', 'template', 'trade_request', 'buy_request', 'sell_offer', 'contract_proposal', 'contract_signed', 'contract_update']);
 
 // Chat type enum
 export const chatTypeEnum = pgEnum('chat_type', ['direct', 'group', 'broadcast']);
@@ -282,6 +319,7 @@ export const messages = pgTable("messages", {
   commodityId: integer("commodity_id"), // For trade-related messages
   listingId: integer("listing_id"), // For messages related to listings
   offerId: integer("offer_id"), // For messages related to offers
+  contractId: integer("contract_id"), // For messages related to trade contracts
   replyToId: integer("reply_to_id"),
   isEdited: boolean("is_edited").default(false),
   isDeleted: boolean("is_deleted").default(false),
@@ -306,6 +344,7 @@ export const insertKycDocumentSchema = createInsertSchema(kycDocuments).omit({ i
 export const insertListingSchema = createInsertSchema(listings).omit({ id: true });
 export const insertOfferSchema = createInsertSchema(offers).omit({ id: true });
 export const insertTradeSchema = createInsertSchema(trades).omit({ id: true });
+export const insertTradeContractSchema = createInsertSchema(tradeContracts).omit({ id: true });
 export const insertChatSchema = createInsertSchema(chats).omit({ id: true });
 export const insertChatMemberSchema = createInsertSchema(chatMembers).omit({ id: true });
 export const insertMessageTemplateSchema = createInsertSchema(messageTemplates).omit({ id: true });
@@ -326,6 +365,7 @@ export type InsertKycDocument = z.infer<typeof insertKycDocumentSchema>;
 export type InsertListing = z.infer<typeof insertListingSchema>;
 export type InsertOffer = z.infer<typeof insertOfferSchema>;
 export type InsertTrade = z.infer<typeof insertTradeSchema>;
+export type InsertTradeContract = z.infer<typeof insertTradeContractSchema>;
 export type InsertChat = z.infer<typeof insertChatSchema>;
 export type InsertChatMember = z.infer<typeof insertChatMemberSchema>;
 export type InsertMessageTemplate = z.infer<typeof insertMessageTemplateSchema>;
@@ -345,6 +385,7 @@ export type KycDocument = typeof kycDocuments.$inferSelect;
 export type Listing = typeof listings.$inferSelect;
 export type Offer = typeof offers.$inferSelect;
 export type Trade = typeof trades.$inferSelect;
+export type TradeContract = typeof tradeContracts.$inferSelect;
 export type Chat = typeof chats.$inferSelect;
 export type ChatMember = typeof chatMembers.$inferSelect;
 export type MessageTemplate = typeof messageTemplates.$inferSelect;
@@ -407,11 +448,12 @@ export const offerFormSchema = insertOfferSchema.extend({
 export const messageFormSchema = insertMessageSchema.extend({
   chatId: z.number(),
   content: z.string().min(1, "Message cannot be empty"),
-  type: z.enum(['text', 'image', 'audio', 'document', 'location', 'contact', 'system', 'template', 'trade_request', 'buy_request', 'sell_offer']).default('text'),
+  type: z.enum(['text', 'image', 'audio', 'document', 'location', 'contact', 'system', 'template', 'trade_request', 'buy_request', 'sell_offer', 'contract_proposal', 'contract_signed', 'contract_update']).default('text'),
   templateId: z.number().optional(),
   commodityId: z.number().optional(),
   listingId: z.number().optional(),
   offerId: z.number().optional(),
+  contractId: z.number().optional(),
 });
 
 // Template message schemas
@@ -496,6 +538,39 @@ export const templatedMessageFormSchema = z.object({
   commodityId: z.number().optional(),
   listingId: z.number().optional(),
   offerId: z.number().optional(),
+  contractId: z.number().optional(),
+});
+
+// Trade contract form schema
+export const tradeContractFormSchema = insertTradeContractSchema.extend({
+  contractNumber: z.string().default(() => `CONTRACT-${Date.now()}`),
+  name: z.string().min(3, "Contract name must be at least 3 characters"),
+  buyerId: z.number(),
+  sellerId: z.number(),
+  chatId: z.number(),
+  messageId: z.number().optional(),
+  commodityId: z.number(),
+  commodityName: z.string(),
+  quantity: z.number().min(1, "Quantity must be at least 1"),
+  unit: z.string().default("kg"),
+  pricePerUnit: z.number().min(1, "Price per unit must be at least 1"),
+  totalAmount: z.number().min(1, "Total amount must be at least 1"),
+  quality: z.string(),
+  qualityParams: z.record(z.string(), z.any()).optional(),
+  deliveryTerms: z.string(),
+  deliveryLocation: z.string(),
+  deliveryDate: z.coerce.date().optional(),
+  paymentTerms: z.string(),
+  additionalTerms: z.string().optional(),
+  status: z.enum(['draft', 'pending', 'signed', 'active', 'completed', 'cancelled', 'disputed']).default('draft'),
+  createdBy: z.number(),
+});
+
+// WhatsApp sharing schema for trade contracts
+export const whatsappShareSchema = z.object({
+  contractId: z.number(),
+  phoneNumbers: z.array(z.string()),
+  message: z.string().optional(),
 });
 
 export type RegisterUserInput = z.infer<typeof registerUserSchema>;
@@ -510,5 +585,7 @@ export type BuyRequestTemplateInput = z.infer<typeof buyRequestTemplateSchema>;
 export type SellOfferTemplateInput = z.infer<typeof sellOfferTemplateSchema>;
 export type NegotiationTemplateInput = z.infer<typeof negotiationTemplateSchema>;
 export type TemplatedMessageInput = z.infer<typeof templatedMessageFormSchema>;
+export type TradeContractFormInput = z.infer<typeof tradeContractFormSchema>;
+export type WhatsappShareInput = z.infer<typeof whatsappShareSchema>;
 export type ChatGroupFormInput = z.infer<typeof chatGroupFormSchema>;
 export type ChatBroadcastFormInput = z.infer<typeof chatBroadcastFormSchema>;

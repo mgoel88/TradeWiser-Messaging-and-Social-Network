@@ -2023,6 +2023,236 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Trade Contract routes
+  app.get("/api/contracts", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const role = req.query.role as string;
+      
+      const contracts = await storage.getUserTradeContracts(userId, role);
+      return res.json(contracts);
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/contracts/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const contractId = parseInt(req.params.id);
+      
+      if (isNaN(contractId)) {
+        return res.status(400).json({ message: "Invalid contract ID" });
+      }
+      
+      const contract = await storage.getTradeContract(contractId);
+      if (!contract) {
+        return res.status(404).json({ message: "Contract not found" });
+      }
+      
+      // Check if user is involved in this contract
+      if (contract.buyerId !== userId && contract.sellerId !== userId && contract.createdBy !== userId) {
+        return res.status(403).json({ message: "Unauthorized to view this contract" });
+      }
+      
+      return res.json(contract);
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/contracts", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const contractData = req.body;
+      
+      // Validate contract data
+      const result = tradeContractFormSchema.safeParse({
+        ...contractData,
+        createdBy: userId
+      });
+      
+      if (!result.success) {
+        return handleZodError(result.error, res);
+      }
+      
+      // Make sure the user is either the buyer or seller
+      if (result.data.buyerId !== userId && result.data.sellerId !== userId) {
+        return res.status(403).json({ message: "You must be a party to the contract" });
+      }
+      
+      // Calculate total amount if not provided
+      if (!result.data.totalAmount) {
+        result.data.totalAmount = result.data.quantity * result.data.pricePerUnit;
+      }
+      
+      const newContract = await storage.createTradeContract(result.data);
+      
+      // If there's a chatId and messageId, send a contract message to the chat
+      if (result.data.chatId) {
+        const message = {
+          chatId: result.data.chatId,
+          senderId: userId,
+          type: 'contract_proposal',
+          content: `Contract proposal: ${result.data.name}`,
+          contractId: newContract.id,
+          metadata: {
+            contractId: newContract.id,
+            contractNumber: newContract.contractNumber,
+            commodityName: result.data.commodityName,
+            quantity: result.data.quantity,
+            unit: result.data.unit,
+            pricePerUnit: result.data.pricePerUnit,
+            totalAmount: result.data.totalAmount,
+            status: newContract.status
+          }
+        };
+        
+        await storage.createMessage(message);
+      }
+      
+      return res.status(201).json(newContract);
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/contracts/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const contractId = parseInt(req.params.id);
+      
+      if (isNaN(contractId)) {
+        return res.status(400).json({ message: "Invalid contract ID" });
+      }
+      
+      const contract = await storage.getTradeContract(contractId);
+      if (!contract) {
+        return res.status(404).json({ message: "Contract not found" });
+      }
+      
+      // Check if user is involved in this contract
+      if (contract.buyerId !== userId && contract.sellerId !== userId && contract.createdBy !== userId) {
+        return res.status(403).json({ message: "Unauthorized to update this contract" });
+      }
+      
+      // Don't allow updates to completed or cancelled contracts
+      if (contract.status === 'completed' || contract.status === 'cancelled') {
+        return res.status(400).json({ message: "Cannot update a completed or cancelled contract" });
+      }
+      
+      const updateData = req.body;
+      
+      // If status is changing to 'signed', make sure the user is not the one who created the contract
+      if (updateData.status === 'signed' && contract.status === 'pending') {
+        const signingParty = contract.buyerId === userId ? 'buyer' : 'seller';
+        const creatingParty = contract.createdBy === contract.buyerId ? 'buyer' : 'seller';
+        
+        if (signingParty === creatingParty) {
+          return res.status(400).json({ message: "The contract must be signed by the other party" });
+        }
+        
+        // Change status to 'active' once signed
+        updateData.status = 'active';
+      }
+      
+      const updatedContract = await storage.updateTradeContract(contractId, updateData);
+      
+      // Send a message to the chat if there's a status change
+      if (updateData.status && contract.chatId) {
+        const messageType = updateData.status === 'active' ? 'contract_signed' : 'contract_update';
+        const message = {
+          chatId: contract.chatId,
+          senderId: userId,
+          type: messageType,
+          content: `Contract ${updateData.status}: ${contract.name}`,
+          contractId: contract.id,
+          metadata: {
+            contractId: contract.id,
+            contractNumber: contract.contractNumber,
+            status: updateData.status
+          }
+        };
+        
+        await storage.createMessage(message);
+      }
+      
+      return res.json(updatedContract);
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/contracts/:id/share", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const contractId = parseInt(req.params.id);
+      
+      if (isNaN(contractId)) {
+        return res.status(400).json({ message: "Invalid contract ID" });
+      }
+      
+      const contract = await storage.getTradeContract(contractId);
+      if (!contract) {
+        return res.status(404).json({ message: "Contract not found" });
+      }
+      
+      // Check if user is involved in this contract
+      if (contract.buyerId !== userId && contract.sellerId !== userId && contract.createdBy !== userId) {
+        return res.status(403).json({ message: "Unauthorized to share this contract" });
+      }
+      
+      // Validate share data
+      const result = whatsappShareSchema.safeParse({
+        ...req.body,
+        contractId
+      });
+      
+      if (!result.success) {
+        return handleZodError(result.error, res);
+      }
+      
+      // Here you would implement WhatsApp sharing functionality
+      // This is a placeholder for actual implementation
+      
+      // Generate a contract summary for WhatsApp
+      const contractSummary = `
+📝 *TRADE CONTRACT* 📝
+Contract #: ${contract.contractNumber}
+Status: ${contract.status.toUpperCase()}
+
+🌾 Commodity: ${contract.commodityName}
+📦 Quantity: ${contract.quantity} ${contract.unit}
+💰 Price: ${contract.pricePerUnit} per ${contract.unit}
+💵 Total: ${contract.totalAmount}
+
+📋 Quality: ${contract.quality}
+🚚 Delivery: ${contract.deliveryTerms}
+📍 Location: ${contract.deliveryLocation}
+💳 Payment: ${contract.paymentTerms}
+
+For full details, please login to WizXConnect.
+      `.trim();
+      
+      const message = result.data.message || contractSummary;
+      
+      // Return success response with the message that would be sent
+      return res.json({
+        success: true,
+        contractId,
+        phoneNumbers: result.data.phoneNumbers,
+        message
+      });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Recommendations API Routes
   app.get("/api/recommendations/connections", isAuthenticated, async (req, res) => {
     try {

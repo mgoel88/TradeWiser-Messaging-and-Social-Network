@@ -13,6 +13,7 @@ import {
   listings, Listing, InsertListing,
   offers, Offer, InsertOffer,
   trades, Trade, InsertTrade,
+  tradeContracts, TradeContract, InsertTradeContract,
   chats, Chat, InsertChat,
   chatMembers, ChatMember, InsertChatMember,
   messages, Message, InsertMessage,
@@ -142,6 +143,15 @@ export interface IStorage {
   getUserTrades(userId: number, role?: string): Promise<Trade[]>;
   getTradesByStatus(status: string): Promise<Trade[]>;
   updateTradeRating(id: number, rating: number, review: string, role: string): Promise<Trade | undefined>;
+  
+  // Trade Contract operations
+  getTradeContract(id: number): Promise<TradeContract | undefined>;
+  createTradeContract(contract: InsertTradeContract): Promise<TradeContract>;
+  updateTradeContract(id: number, contract: Partial<TradeContract>): Promise<TradeContract | undefined>;
+  updateTradeContractStatus(id: number, status: string): Promise<TradeContract | undefined>;
+  getUserTradeContracts(userId: number, role?: string): Promise<TradeContract[]>;
+  getTradeContractsByStatus(status: string): Promise<TradeContract[]>;
+  getTradeContractsByCommodity(commodityId: number): Promise<TradeContract[]>;
 
   // Chat operations
   getChat(id: number): Promise<Chat | undefined>;
@@ -939,6 +949,78 @@ export class DatabaseStorage implements IStorage {
       .returning();
     
     return updatedTrade || undefined;
+  }
+
+  // Trade Contract operations
+  async getTradeContract(id: number): Promise<TradeContract | undefined> {
+    const [contract] = await db
+      .select()
+      .from(tradeContracts)
+      .where(eq(tradeContracts.id, id));
+    return contract || undefined;
+  }
+
+  async createTradeContract(contract: InsertTradeContract): Promise<TradeContract> {
+    const [newContract] = await db
+      .insert(tradeContracts)
+      .values(contract)
+      .returning();
+    return newContract;
+  }
+
+  async updateTradeContract(id: number, contract: Partial<TradeContract>): Promise<TradeContract | undefined> {
+    const [updatedContract] = await db
+      .update(tradeContracts)
+      .set(contract)
+      .where(eq(tradeContracts.id, id))
+      .returning();
+    return updatedContract || undefined;
+  }
+
+  async updateTradeContractStatus(id: number, status: string): Promise<TradeContract | undefined> {
+    const [updatedContract] = await db
+      .update(tradeContracts)
+      .set({ status })
+      .where(eq(tradeContracts.id, id))
+      .returning();
+    return updatedContract || undefined;
+  }
+
+  async getUserTradeContracts(userId: number, role?: string): Promise<TradeContract[]> {
+    if (role === 'buyer') {
+      return await db
+        .select()
+        .from(tradeContracts)
+        .where(eq(tradeContracts.buyerId, userId));
+    } else if (role === 'seller') {
+      return await db
+        .select()
+        .from(tradeContracts)
+        .where(eq(tradeContracts.sellerId, userId));
+    } else {
+      // Get all contracts where user is either buyer or seller
+      return await db
+        .select()
+        .from(tradeContracts)
+        .where(or(
+          eq(tradeContracts.buyerId, userId),
+          eq(tradeContracts.sellerId, userId)
+        ));
+    }
+  }
+
+  async getTradeContractsByStatus(status: string): Promise<TradeContract[]> {
+    return await db
+      .select()
+      .from(tradeContracts)
+      .where(eq(tradeContracts.status, status));
+  }
+
+  async getTradeContractsByCommodity(commodityId: number): Promise<TradeContract[]> {
+    return await db
+      .select()
+      .from(tradeContracts)
+      .where(eq(tradeContracts.commodityId, commodityId));
   }
 
   // Chat operations

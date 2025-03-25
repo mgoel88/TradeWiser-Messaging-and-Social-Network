@@ -18,6 +18,7 @@ import MarketNews from "@/pages/market-news";
 import Marketplace from "@/pages/marketplace";
 import MarketplaceNew from "@/pages/marketplace-new";
 import TradingTemplates from "@/pages/trading-templates";
+import Contracts from "@/pages/contracts";
 import { useQuery } from "@tanstack/react-query";
 import Header from "./components/layout/Header";
 import Footer from "./components/layout/Footer";
@@ -26,7 +27,7 @@ import { NotificationsProvider } from "./components/notifications";
 
 function Router() {
   const [location, setLocation] = useLocation();
-  const { data: session } = useQuery({ 
+  const { data: session } = useQuery<{ user?: any; message?: string }>({ 
     queryKey: ['/api/auth/session'],
     retry: false,
     staleTime: 0,
@@ -38,12 +39,12 @@ function Router() {
     const publicPages = ['/login', '/register'];
     const isPrivatePage = !publicPages.includes(location);
     
-    if (isPrivatePage && session && session.message === "Not authenticated") {
+    if (isPrivatePage && (!session || (session && typeof session === 'object' && 'message' in session && session.message === "Not authenticated"))) {
       setLocation('/login');
     }
     
     // Redirect to home if already authenticated and trying to access login/register
-    if (publicPages.includes(location) && session && session.user) {
+    if (publicPages.includes(location) && session && typeof session === 'object' && 'user' in session && session.user) {
       setLocation('/');
     }
   }, [location, session, setLocation]);
@@ -64,6 +65,7 @@ function Router() {
       <Route path="/marketplace" component={Marketplace} />
       <Route path="/marketplace/new" component={MarketplaceNew} />
       <Route path="/trading-templates" component={TradingTemplates} />
+      <Route path="/contracts" component={Contracts} />
       <Route component={NotFound} />
     </Switch>
   );

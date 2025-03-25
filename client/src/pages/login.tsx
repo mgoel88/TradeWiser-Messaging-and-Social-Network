@@ -42,18 +42,21 @@ const Login: React.FC = () => {
   });
   
   const loginMutation = useMutation({
-    mutationFn: (data: LoginFormValues) => {
-      return apiRequest("POST", "/api/auth/login", data);
+    mutationFn: async (data: LoginFormValues) => {
+      const response = await apiRequest("POST", "/api/auth/login", data);
+      const responseData = await response.json();
+      return responseData;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/auth/session'] });
       toast({
         title: "Login successful",
-        description: "Welcome back to KrishiConnect!",
+        description: `Welcome back to ${APP_NAME}!`,
       });
       setLocation('/');
     },
     onError: (error) => {
+      console.error("Login error:", error);
       toast({
         title: "Login failed",
         description: error instanceof Error ? error.message : "Invalid username or password",
