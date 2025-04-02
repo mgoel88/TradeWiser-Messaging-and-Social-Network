@@ -28,6 +28,8 @@ interface PriceUpdateMessage extends WebSocketMessage {
 }
 
 export function useWebSocket() {
+  const [retryCount, setRetryCount] = useState(0);
+  const maxRetries = 5;
   const [status, setStatus] = useState<WebSocketStatus>(WebSocketStatus.CLOSED);
   const socketRef = useRef<WebSocket | null>(null);
   const { toast } = useToast();

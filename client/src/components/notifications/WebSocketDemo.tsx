@@ -4,7 +4,18 @@ import { toast } from '@/hooks/use-toast';
 import { Bell, AlertCircle, TrendingUp, HandshakeIcon } from 'lucide-react';
 
 export function WebSocketDemo() {
-  const { connected, lastMessage } = useWebSocket();
+  const { connected, lastMessage, reconnect } = useWebSocket();
+
+  useEffect(() => {
+    if (!connected) {
+      // Attempt to reconnect every 5 seconds if disconnected
+      const reconnectInterval = setInterval(() => {
+        reconnect();
+      }, 5000);
+
+      return () => clearInterval(reconnectInterval);
+    }
+  }, [connected, reconnect]);
 
   useEffect(() => {
     if (lastMessage) {

@@ -7,7 +7,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
-import { useToast, toast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -30,10 +30,11 @@ import {
 } from '@/components/ui/form';
 import { Badge } from '@/components/ui/badge';
 import { Eye, CheckCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
 
 
-
-// Contract form schema (moved from original file)
+// Contract form schema 
 const contractFormSchema = z.object({
   name: z.string().min(3, { message: 'Contract name is required' }),
   buyerId: z.number().optional(),
@@ -56,17 +57,15 @@ const contractFormSchema = z.object({
 
 type ContractFormValues = z.infer<typeof contractFormSchema>;
 
-
 export default function ContractsPage() {
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState('standard');
   const { toast } = useToast();
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState('all'); // Retained from original
-  const [searchQuery, setSearchQuery] = useState(''); // Retained from original
+  const [activeTab, setActiveTab] = useState('all'); 
+  const [searchQuery, setSearchQuery] = useState(''); 
 
-  // Get user session (retained from original)
-  const { data: sessionData } = useQuery({
+  // Get user session 
+  const { data: sessionData, isLoading: sessionLoading, error: sessionError } = useQuery({
     queryKey: ['/api/auth/session'],
     queryFn: async () => {
       const res = await apiRequest('GET', '/api/auth/session');
@@ -74,9 +73,56 @@ export default function ContractsPage() {
     },
   });
 
+  // Get contracts
+  const { data: contractsData, isLoading: contractsLoading, error: contractsError } = useQuery({
+    queryKey: ['/api/contracts'],
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/contracts');
+      return res.json();
+    },
+    enabled: !!sessionData?.user?.id,
+  });
+
+  if (sessionLoading || contractsLoading) {
+    return (
+      <div className="container py-6 space-y-4">
+        <Skeleton className="h-8 w-48" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-40" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (sessionError || contractsError) {
+    return (
+      <div className="container py-6">
+        <Alert variant="destructive">
+          <AlertDescription>
+            Failed to load contracts. Please try refreshing the page.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  if (!sessionData?.user) {
+    return (
+      <div className="container py-6">
+        <Alert>
+          <AlertDescription>
+            Please log in to view your contracts.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
   const userId = sessionData?.user?.id;
 
-  // Setup form (retained and modified from original)
+  // Setup form 
   const form = useForm<ContractFormValues>({
     resolver: zodResolver(contractFormSchema),
     defaultValues: {
@@ -100,7 +146,7 @@ export default function ContractsPage() {
     }
   });
 
-  // Get all contracts (retained from original)
+  // Get all contracts 
     const { data: allContractsData, isLoading: isLoadingAllContracts } = useQuery({
       queryKey: ['/api/contracts'],
       queryFn: async () => {
@@ -110,7 +156,7 @@ export default function ContractsPage() {
       enabled: !!userId,
     });
   
-    // Get buyer contracts (retained from original)
+    // Get buyer contracts 
     const { data: buyerContractsData, isLoading: isLoadingBuyerContracts } = useQuery({
       queryKey: ['/api/contracts', 'buyer'],
       queryFn: async () => {
@@ -120,7 +166,7 @@ export default function ContractsPage() {
       enabled: !!userId,
     });
   
-    // Get seller contracts (retained from original)
+    // Get seller contracts 
     const { data: sellerContractsData, isLoading: isLoadingSellerContracts } = useQuery({
       queryKey: ['/api/contracts', 'seller'],
       queryFn: async () => {
@@ -130,7 +176,7 @@ export default function ContractsPage() {
       enabled: !!userId,
     });
   
-    // Get commodities for dropdown (retained from original)
+    // Get commodities for dropdown 
     const { data: commoditiesData } = useQuery({
       queryKey: ['/api/commodities'],
       queryFn: async () => {
@@ -144,7 +190,7 @@ export default function ContractsPage() {
       enabled: !!userId,
     });
   
-    // Get user connections for dropdown (retained from original)
+    // Get user connections for dropdown 
     const { data: connectionsData } = useQuery({
       queryKey: ['/api/connections'],
       queryFn: async () => {
@@ -158,7 +204,7 @@ export default function ContractsPage() {
       enabled: !!userId,
     });
   
-    // Filter contracts based on search query (retained from original)
+    // Filter contracts based on search query 
     const filterContracts = (contracts: any[]) => {
       if (!searchQuery) return contracts;
       return contracts?.filter(contract =>
@@ -168,7 +214,7 @@ export default function ContractsPage() {
       );
     };
   
-    // Create contract mutation (retained from original)
+    // Create contract mutation 
     const createContractMutation = useMutation({
       mutationFn: async (contractData: ContractFormValues) => {
         const response = await apiRequest('POST', '/api/contracts', contractData);
@@ -193,7 +239,7 @@ export default function ContractsPage() {
       },
     });
   
-    // Handle form submission (retained and modified from original)
+    // Handle form submission 
     const onSubmit = (data: ContractFormValues) => {
       // Calculate total amount if not provided
       if (!data.totalAmount) {
@@ -227,7 +273,7 @@ Payment Terms: ${contract.paymentTerms || 'Not specified'}
       
 This is a digital contract generated via WizXConnect. For full details, please login to your account.`;
       };
-
+  
       // Function to share contract via WhatsApp
       const shareViaWhatsApp = () => {
         const contractText = generateContractSummary();
@@ -235,7 +281,7 @@ This is a digital contract generated via WizXConnect. For full details, please l
         const whatsappUrl = `https://wa.me/?text=${encodedText}`;
         window.open(whatsappUrl, '_blank');
       };
-
+  
       // Function to view contract details (placeholder)
       const viewContract = () => {
         toast({
@@ -244,7 +290,7 @@ This is a digital contract generated via WizXConnect. For full details, please l
         });
         // Future implementation: Open contract details view
       };
-
+  
       // Function to sign contract (placeholder)
       const signContract = () => {
         toast({
@@ -253,7 +299,7 @@ This is a digital contract generated via WizXConnect. For full details, please l
         });
         // Future implementation: Contract signing flow
       };
-
+  
       return (
         <Card className="mb-4">
           <div className="p-4">
@@ -356,13 +402,13 @@ This is a digital contract generated via WizXConnect. For full details, please l
           {isLoadingAllContracts ? (
             <ContractLoadingSkeleton />
           ) : allContractsData && filterContracts(allContractsData).length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> {/* Modified to use grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> 
               {filterContracts(allContractsData).map((contract: any) => (
                 <ContractCard key={contract.id} contract={contract} />
               ))}
             </div>
           ) : (
-            <div className="p-6"> {/* Simple empty state */}
+            <div className="p-6"> 
               <p>No contracts found.</p>
             </div>
           )}
@@ -761,7 +807,7 @@ const formatCurrency = (amount: number) => {
       case 'pending':
         return 'bg-yellow-100 text-yellow-800';
       case 'signed':
-        return 'bg-blue-100 text-blue-800';
+        return'bg-blue-100 text-blue-800';
       case 'active':
         return 'bg-green-100 text-green-800';
       case 'completed':
