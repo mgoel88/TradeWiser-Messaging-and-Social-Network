@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Leaf, Home, Users, MapPin, Bell, Search, Menu, X, Newspaper, ShoppingCart } from "lucide-react";
+import { Leaf, Home, Users, MapPin, Bell, Search, Menu, X, Newspaper, BarChart3 } from "lucide-react";
 import { APP_NAME } from "@/lib/constants";
 import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
@@ -28,7 +28,7 @@ const Header = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const { data: sessionData, isLoading } = useQuery({
+  const { data: sessionData = {}, isLoading } = useQuery<{ user?: any }>({
     queryKey: ['/api/auth/session'],
   });
 
@@ -107,7 +107,7 @@ const Header = () => {
               <MapPin className="h-5 w-5" />
             </Link>
             <Link href="/marketplace" className="p-2 text-gray-700 hover:text-primary rounded-full hover:bg-gray-100">
-              <ShoppingCart className="h-5 w-5" />
+              <BarChart3 className="h-5 w-5" />
             </Link>
             <Link href="/messages" className="p-2 text-gray-700 hover:text-primary rounded-full hover:bg-gray-100">
               <Bell className="h-5 w-5" />

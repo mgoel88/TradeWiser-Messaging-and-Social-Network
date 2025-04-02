@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, Users, Wheat, MessageSquare, User, Warehouse, Menu, X, Newspaper, LineChart, ShoppingCart, FileText } from "lucide-react";
+import { Home, Users, Wheat, MessageSquare, User, Warehouse, Menu, X, Newspaper, LineChart, BarChart3, FileText } from "lucide-react";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ const MobileNavigation = () => {
   const { t } = useLanguage();
 
   // Fetch user data for full menu
-  const { data: sessionData } = useQuery({
+  const { data: sessionData = {} } = useQuery<{ user?: any }>({
     queryKey: ['/api/auth/session']
   });
   
@@ -26,7 +26,7 @@ const MobileNavigation = () => {
   const primaryNavItems = [
     { path: "/", icon: Home, label: "Home" },
     { path: "/circles", icon: Users, label: "Circles" },
-    { path: "/marketplace", icon: ShoppingCart, label: "Market" },
+    { path: "/marketplace", icon: BarChart3, label: "Market" },
     { path: "/messages", icon: MessageSquare, label: "Messages" },
     { path: "/profile", icon: User, label: "Profile" }
   ];
@@ -38,7 +38,7 @@ const MobileNavigation = () => {
     { path: "/circles", icon: Users, label: "Circles" },
     { path: "/assets", icon: Warehouse, label: "Assets" },
     { path: "/commodities", icon: Wheat, label: "Commodities" },
-    { path: "/marketplace", icon: ShoppingCart, label: "Marketplace" },
+    { path: "/marketplace", icon: BarChart3, label: "Marketplace" },
     { path: "/messages", icon: MessageSquare, label: "Messages" },
     { path: "/contracts", icon: FileText, label: "Contracts" },
     { path: "/trading-templates", icon: FileText, label: "Trading Templates" },
