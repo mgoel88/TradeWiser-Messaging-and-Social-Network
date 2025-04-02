@@ -1,7 +1,7 @@
-
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader } from '../ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { PriceHistoryChart } from '../commodity/PriceHistoryChart';
 import { PriceTicker } from '../commodity/PriceTicker';
 import { RecentPriceUpdates } from '../commodity/RecentPriceUpdates';
@@ -13,10 +13,15 @@ export function MarketDashboard() {
     queryFn: getQueryFn()
   });
 
+  const { data: recommendations } = useQuery({
+    queryKey: ['/api/recommendations'],
+    queryFn: getQueryFn({ on401: 'returnNull' })
+  });
+
   if (!analysis) return null;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       <Card>
         <CardHeader>
           <h3 className="font-heading text-lg">Daily Price Summary</h3>
@@ -74,6 +79,30 @@ export function MarketDashboard() {
           </div>
         </CardContent>
       </Card>
+
+      {recommendations?.map((rec: any) => (
+        <Card key={rec.id}>
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-lg">{rec.commodity}</CardTitle>
+              <Badge variant={rec.type === 'buy' ? 'success' : 'destructive'}>
+                {rec.type.toUpperCase()}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <p>{rec.description}</p>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>Current: ₹{rec.currentPrice}</div>
+                <div>Target: ₹{rec.targetPrice}</div>
+                <div>Stop Loss: ₹{rec.stopLoss}</div>
+                <div>Confidence: {rec.confidence}</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 }

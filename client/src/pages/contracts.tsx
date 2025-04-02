@@ -111,6 +111,7 @@ export default function ContractsPage() {
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [selectedContract, setSelectedContract] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState('standard'); // Added state for selected template
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [location, navigate] = useLocation();
@@ -235,11 +236,11 @@ export default function ContractsPage() {
         },
         body: JSON.stringify(contractData),
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to create contract');
       }
-      
+
       return response.json();
     },
     onSuccess: () => {
@@ -271,11 +272,11 @@ export default function ContractsPage() {
         },
         body: JSON.stringify(data),
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to update contract');
       }
-      
+
       return response.json();
     },
     onSuccess: () => {
@@ -307,11 +308,11 @@ export default function ContractsPage() {
         },
         body: JSON.stringify(data),
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to share contract');
       }
-      
+
       return response.json();
     },
     onSuccess: (data) => {
@@ -321,7 +322,7 @@ export default function ContractsPage() {
       });
       setIsShareDialogOpen(false);
       shareForm.reset();
-      
+
       // In a real app, this would use the WhatsApp API
       // For demo purposes, we'll just show a success message with the content
       console.log('Shared content:', data);
@@ -342,7 +343,7 @@ export default function ContractsPage() {
     if (!data.totalAmount) {
       data.totalAmount = data.quantity * data.pricePerUnit;
     }
-    
+
     // Make sure user is either buyer or seller
     if (!data.buyerId && !data.sellerId) {
       if (activeTab === 'buyer') {
@@ -351,14 +352,14 @@ export default function ContractsPage() {
         data.sellerId = userId;
       }
     }
-    
+
     createContractMutation.mutate(data);
   };
 
   // Handle share form submission
   const onShareSubmit = (data: WhatsappShareValues) => {
     if (!selectedContract) return;
-    
+
     shareContractMutation.mutate({
       id: selectedContract.id,
       data
@@ -375,7 +376,7 @@ export default function ContractsPage() {
   const handleShareContract = (contract: any) => {
     setSelectedContract(contract);
     setIsShareDialogOpen(true);
-    
+
     // Reset form and set initial phone numbers
     shareForm.reset({
       phoneNumbers: ['+91'],
@@ -393,12 +394,12 @@ export default function ContractsPage() {
       });
       return;
     }
-    
+
     // Check if user is buyer or seller and not the creator
     const isCreator = contract.createdBy === userId;
     const isBuyer = contract.buyerId === userId;
     const isSeller = contract.sellerId === userId;
-    
+
     if (isCreator) {
       toast({
         title: 'Cannot sign contract',
@@ -407,7 +408,7 @@ export default function ContractsPage() {
       });
       return;
     }
-    
+
     if (!isBuyer && !isSeller) {
       toast({
         title: 'Cannot sign contract',
@@ -416,7 +417,7 @@ export default function ContractsPage() {
       });
       return;
     }
-    
+
     updateContractMutation.mutate({
       id: contract.id,
       data: { status: 'signed' }
@@ -601,10 +602,22 @@ export default function ContractsPage() {
           </p>
         </div>
         <div className="mt-4 md:mt-0">
-          <Button onClick={() => setIsCreateDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Contract
-          </Button>
+          <div className="flex space-x-2">
+            <Select defaultValue="standard" onValueChange={(val) => setSelectedTemplate(val)}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Select template" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="standard">Standard Purchase</SelectItem>
+                <SelectItem value="forward">Forward Contract</SelectItem>
+                <SelectItem value="quality">Quality Assured</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button onClick={() => setIsCreateDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Contract
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -679,7 +692,7 @@ export default function ContractsPage() {
               Fill in the details to create a legally binding contract for your trade
             </DialogDescription>
           </DialogHeader>
-          
+
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
@@ -826,7 +839,7 @@ export default function ContractsPage() {
                   )}
                 />
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {activeTab === 'buyer' ? (
                   <FormField
@@ -1209,7 +1222,7 @@ export default function ContractsPage() {
                 Share contract #{selectedContract.contractNumber} with your contacts
               </DialogDescription>
             </DialogHeader>
-            
+
             <Form {...shareForm}>
               <form onSubmit={shareForm.handleSubmit(onShareSubmit)} className="space-y-4">
                 <div className="space-y-2">
