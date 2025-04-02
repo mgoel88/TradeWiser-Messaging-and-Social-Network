@@ -757,7 +757,6 @@ async function main() {
   await db.insert(tradeContracts).values({
     tradeId: riceTrade.id,
     buyerId: rajesh.id,
-    sellerid,
     sellerId: bengalTraders.id,
     title: "Purchase Agreement - 100 Quintals Basmati Rice",
     commodityId: rice.id,
@@ -971,6 +970,56 @@ async function main() {
     status: "read",
     metadata: {}
   });
+
+  // Create test chats
+  console.log("Creating test chats and messages...");
+
+  const [traderChat] = await db.insert(chats).values({
+    type: 'direct',
+    creatorId: priya.id,
+    name: null,
+    description: null,
+    isActive: true,
+    lastMessageAt: new Date()
+  }).returning();
+
+  // Add chat members
+  await db.insert(chatMembers).values([
+    {
+      chatId: traderChat.id,
+      userId: priya.id,
+      role: 'admin',
+      isActive: true,
+      joinedAt: new Date()
+    },
+    {
+      chatId: traderChat.id,
+      userId: rajesh.id,
+      role: 'member',
+      isActive: true,
+      joinedAt: new Date()
+    }
+  ]);
+
+  // Add test messages
+  await db.insert(messages).values([
+    {
+      chatId: traderChat.id,
+      senderId: priya.id,
+      type: 'text',
+      content: 'Hi Rajesh, I saw your interest in wheat trading. I have some premium quality wheat available.',
+      createdAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
+      status: 'read'
+    },
+    {
+      chatId: traderChat.id,
+      senderId: rajesh.id,
+      type: 'text',
+      content: 'Hello Priya, yes I am looking for wheat. Can you share the details and price?',
+      createdAt: new Date(now.getTime() - 1 * 60 * 60 * 1000),
+      status: 'read'
+    }
+  ]);
 
   // Chat between Sunita and Amit (with contract)
   const [sunitaAmitChat] = await db.insert(chats).values({
