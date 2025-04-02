@@ -1,32 +1,40 @@
 
-import React, { useState, useEffect } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from './sheet';
-import { Button } from './button';
-import { useRouter } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { useRouter } from 'wouter';
 
 const steps = [
   {
     title: "Welcome to WizXConnect",
-    content: "Your one-stop platform for agricultural commodity trading. Let's take a quick tour!",
-    image: "https://images.unsplash.com/photo-1574323347407-f5e1c5a1ec21"
+    content: "Your one-stop platform for agricultural commodity trading. Let's explore the key features!",
+    image: "/onboarding/welcome.jpg"
   },
   {
-    title: "Market Dashboard",
-    content: "View real-time commodity prices, trending items, and market analysis all in one place.",
-    target: "[data-tour='market-dashboard']",
-    image: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3"
+    title: "Real-time Market Dashboard",
+    content: "View live commodity prices, trends, and market analysis. Get instant notifications for price changes and market updates.",
+    target: "[data-tour='market-dashboard']"
   },
   {
-    title: "Trading Made Easy",
-    content: "Create buy/sell listings, negotiate prices, and complete trades securely.",
-    target: "[data-tour='trading']",
-    image: "https://images.unsplash.com/photo-1459257868276-5e65389e2722"
+    title: "Smart Trading Tools",
+    content: "Create buy/sell listings, negotiate prices, and manage contracts securely. Use templates for quick trade messages.",
+    target: "[data-tour='trading']"
   },
   {
-    title: "Connect with Others",
-    content: "Build your network with verified traders, brokers, and processors.",
-    target: "[data-tour='connections']",
-    image: "https://images.unsplash.com/photo-1521791136064-7986c2920216"
+    title: "Connect & Network",
+    content: "Build your network with verified traders, brokers, and processors. Join regional circles for better opportunities.",
+    target: "[data-tour='connections']"
+  },
+  {
+    title: "Secure Messaging",
+    content: "Communicate directly with trading partners. Use pre-built templates for common trading scenarios.",
+    target: "[data-tour='messaging']"
+  },
+  {
+    title: "Contract Management",
+    content: "Create, sign, and manage digital contracts. Share them easily with trading partners.",
+    target: "[data-tour='contracts']"
   }
 ];
 
@@ -35,9 +43,22 @@ export function Onboarding() {
   const [isOpen, setIsOpen] = useState(true);
   const router = useRouter();
 
+  useEffect(() => {
+    const completed = localStorage.getItem('ftueCompleted');
+    if (completed) {
+      setIsOpen(false);
+    }
+  }, []);
+
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep(prev => prev + 1);
+      // Navigate to relevant section based on step
+      const step = steps[currentStep + 1];
+      if (step.target) {
+        const element = document.querySelector(step.target);
+        element?.scrollIntoView({ behavior: 'smooth' });
+      }
     } else {
       setIsOpen(false);
       localStorage.setItem('ftueCompleted', 'true');
@@ -49,39 +70,51 @@ export function Onboarding() {
     localStorage.setItem('ftueCompleted', 'true');
   };
 
-  useEffect(() => {
-    const ftueCompleted = localStorage.getItem('ftueCompleted');
-    if (ftueCompleted) {
-      setIsOpen(false);
-    }
-  }, []);
+  const currentStepData = steps[currentStep];
 
   return (
-    <Sheet open={isOpen}>
-      <SheetContent className="w-[90%] sm:w-[540px] h-[80vh]">
-        <SheetHeader>
-          <SheetTitle>{steps[currentStep].title}</SheetTitle>
-        </SheetHeader>
-        
-        <div className="mt-6 space-y-6">
-          <img 
-            src={steps[currentStep].image} 
-            alt={steps[currentStep].title}
-            className="w-full h-48 object-cover rounded-lg"
-          />
-          
-          <p className="text-lg">{steps[currentStep].content}</p>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogContent className="sm:max-w-[500px]">
+        <Card className="p-6">
+          <div className="space-y-4">
+            {currentStepData.image && (
+              <div className="relative h-48 overflow-hidden rounded-lg">
+                <img 
+                  src={currentStepData.image} 
+                  alt={currentStepData.title}
+                  className="object-cover w-full h-full"
+                />
+              </div>
+            )}
+            
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold">{currentStepData.title}</h2>
+              <p className="text-muted-foreground">{currentStepData.content}</p>
+            </div>
 
-          <div className="flex justify-between items-center mt-8">
-            <Button variant="ghost" onClick={handleSkip}>
-              Skip Tour
-            </Button>
-            <Button onClick={handleNext}>
-              {currentStep < steps.length - 1 ? 'Next' : 'Get Started'}
-            </Button>
+            <div className="flex items-center justify-between pt-4">
+              <Button variant="ghost" onClick={handleSkip}>
+                Skip Tour
+              </Button>
+              <div className="flex items-center gap-2">
+                <div className="flex gap-1">
+                  {steps.map((_, i) => (
+                    <div 
+                      key={i}
+                      className={`h-2 w-2 rounded-full ${
+                        i === currentStep ? 'bg-primary' : 'bg-muted'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <Button onClick={handleNext}>
+                  {currentStep === steps.length - 1 ? 'Get Started' : 'Next'}
+                </Button>
+              </div>
+            </div>
           </div>
-        </div>
-      </SheetContent>
-    </Sheet>
+        </Card>
+      </DialogContent>
+    </Dialog>
   );
 }
