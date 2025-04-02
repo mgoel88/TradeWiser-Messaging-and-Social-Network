@@ -11,7 +11,7 @@ import Commodities from "@/pages/commodities";
 import KYC from "@/pages/kyc";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
-import Messages from "@/pages/messages";
+import Messages from "@/pages/messages-new";
 import Assets from "@/pages/assets";
 import Connections from "@/pages/connections";
 import MarketNews from "@/pages/market-news";

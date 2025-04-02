@@ -153,10 +153,7 @@ const Messages: React.FC = () => {
   // Get messages for selected chat
   const { 
     data: messagesData, 
-    isLoading: messagesLoading,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage
+    isLoading: messagesLoading
   } = useQuery({
     queryKey: ['/api/chats', selectedChatId, 'messages'],
     enabled: !!selectedChatId,
@@ -191,10 +188,7 @@ const Messages: React.FC = () => {
   // Mutation for sending messages
   const sendMessageMutation = useMutation({
     mutationFn: (messageData: { chatId: number; content: string; type: string }) => {
-      return apiRequest(`/api/chats/${messageData.chatId}/messages`, {
-        method: 'POST',
-        body: JSON.stringify(messageData)
-      });
+      return apiRequest('POST', `/api/chats/${messageData.chatId}/messages`, messageData);
     },
     onSuccess: () => {
       setMessageText("");
@@ -214,17 +208,14 @@ const Messages: React.FC = () => {
   // Mutation for creating a new direct chat
   const createDirectChatMutation = useMutation({
     mutationFn: (recipientId: number) => {
-      return apiRequest('/api/chats', {
-        method: 'POST',
-        body: JSON.stringify({
-          type: 'direct',
-          recipientId
-        })
+      return apiRequest('POST', '/api/chats', {
+        type: 'direct',
+        recipientId
       });
     },
     onSuccess: (data) => {
       setIsNewChatOpen(false);
-      setSelectedChatId(data.chat.id);
+      setSelectedChatId(data.chat?.id);
       queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
       queryClient.invalidateQueries({ queryKey: ['/api/contacts'] });
     },
@@ -240,16 +231,13 @@ const Messages: React.FC = () => {
   // Mutation for creating a group chat
   const createGroupChatMutation = useMutation({
     mutationFn: (data: { name: string; members: number[]; type: 'group' | 'broadcast' }) => {
-      return apiRequest('/api/chats', {
-        method: 'POST',
-        body: JSON.stringify(data)
-      });
+      return apiRequest('POST', '/api/chats', data);
     },
     onSuccess: (data) => {
       setIsCreateGroupOpen(false);
       setGroupName("");
       setSelectedContacts([]);
-      setSelectedChatId(data.chat.id);
+      setSelectedChatId(data.chat?.id);
       queryClient.invalidateQueries({ queryKey: ['/api/chats'] });
     },
     onError: () => {
@@ -421,8 +409,6 @@ const Messages: React.FC = () => {
 
   // Custom message rendering based on type
   const renderMessage = (message: Message) => {
-    const isCurrentUser = isCurrentUserMessage(message);
-    
     switch (message.type) {
       case 'image':
         return (
@@ -559,7 +545,9 @@ const Messages: React.FC = () => {
                 <ScrollArea className="h-[300px] pr-4">
                   {contactsLoading ? (
                     <div className="py-4">
-                      <AnimatedCardSkeleton count={3} />
+                      <AnimatedSkeleton className="h-20 w-full" />
+                      <AnimatedSkeleton className="h-20 w-full" />
+                      <AnimatedSkeleton className="h-20 w-full" />
                     </div>
                   ) : filteredContacts.length > 0 ? (
                     <div className="divide-y divide-gray-100">
@@ -642,7 +630,9 @@ const Messages: React.FC = () => {
                     <ScrollArea className="h-[200px] pr-4">
                       {contactsLoading ? (
                         <div className="py-4">
-                          <AnimatedCardSkeleton count={3} />
+                          <AnimatedSkeleton className="h-20 w-full" />
+                          <AnimatedSkeleton className="h-20 w-full" />
+                          <AnimatedSkeleton className="h-20 w-full" />
                         </div>
                       ) : filteredContacts.length > 0 ? (
                         <div className="divide-y divide-gray-100">
@@ -705,7 +695,6 @@ const Messages: React.FC = () => {
           </div>
         </div>
 
-        {/* Trade Message Composer */}
         <TradeMessageComposer
           isOpen={isTradeMessageOpen}
           onClose={() => setIsTradeMessageOpen(false)}
@@ -716,9 +705,8 @@ const Messages: React.FC = () => {
         />
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Chats List - Only visible on desktop or when no chat is selected on mobile */}
-          {(showChatList || !selectedChatId) && (
-            <div className="md:col-span-1">
+          <div className="md:col-span-1">
+            {(showChatList || !selectedChatId) && (
               <Card className="h-[calc(100vh-220px)] flex flex-col">
                 <CardHeader className="px-4 py-3 border-b">
                   <div className="relative">
@@ -738,106 +726,16 @@ const Messages: React.FC = () => {
                       <TabsTrigger value="unread">{t("messages.unread")}</TabsTrigger>
                     </TabsList>
                   
-                  <TabsContent value="all" className="flex-1 m-0 overflow-y-auto">
-                    {chatsLoading ? (
-                      <div className="p-4">
-                        <AnimatedCardSkeleton count={5} />
-                      </div>
-                    ) : filteredChats.length > 0 ? (
-                      <div className="divide-y divide-gray-100">
-                        {filteredChats.map((chat: Chat) => {
-                          // For direct chats, show the other user's info
-                          let chatName = "";
-                          let chatAvatar = "";
-                          
-                          if (chat.type === 'direct') {
-                            const otherMember = chat.members.find(m => m.userId !== userId);
-                            if (otherMember?.user) {
-                              chatName = otherMember.user.name;
-                              chatAvatar = otherMember.user.avatar || "";
-                            }
-                          } else {
-                            chatName = chat.name || "Group";
-                            chatAvatar = chat.avatarUrl || "";
-                          }
-                          
-                          return (
-                            <div 
-                              key={chat.id}
-                              className={`p-3 hover:bg-gray-50 cursor-pointer ${
-                                selectedChatId === chat.id ? 'bg-gray-50' : ''
-                              }`}
-                              onClick={() => setSelectedChatId(chat.id)}
-                            >
-                              <div className="flex items-center space-x-3">
-                                <Avatar className="h-10 w-10">
-                                  <AvatarImage src={chatAvatar} />
-                                  <AvatarFallback>
-                                    {chatName.substring(0, 2).toUpperCase()}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex justify-between items-center">
-                                    <h4 className="font-medium text-sm truncate">
-                                      {chatName}
-                                      {chat.type !== 'direct' && (
-                                        <Badge variant="outline" className="ml-1 text-xs">
-                                          {chat.type === 'group' ? t("messages.group") : t("messages.broadcast")}
-                                        </Badge>
-                                      )}
-                                    </h4>
-                                    <span className="text-xs text-gray-500">
-                                      {chat.lastMessage ? formatMessageTime(chat.lastMessage.createdAt) : 
-                                        formatMessageTime(chat.createdAt)}
-                                    </span>
-                                  </div>
-                                  <div className="flex justify-between items-center">
-                                    <p className="text-xs text-gray-500 truncate">
-                                      {chat.lastMessage ? 
-                                        (chat.lastMessage.type === 'text' ? 
-                                          chat.lastMessage.content : 
-                                          t(`messages.${chat.lastMessage.type}`)) : 
-                                        t("messages.no_messages")}
-                                    </p>
-                                    {chat.unreadCount > 0 && (
-                                      <Badge variant="default" className="ml-1 rounded-full h-5 w-5 p-0 flex items-center justify-center">
-                                        {chat.unreadCount}
-                                      </Badge>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="flex flex-col justify-center items-center h-full p-6 text-center">
-                        <User className="h-12 w-12 text-gray-300 mb-3" />
-                        <h3 className="text-lg font-medium mb-1">{t("messages.no_conversations")}</h3>
-                        <p className="text-gray-500 text-sm mb-4">
-                          {searchQuery 
-                            ? t("messages.no_conversations_search") 
-                            : t("messages.start_by_connecting")}
-                        </p>
-                        <Button onClick={() => setIsNewChatOpen(true)}>
-                          <Plus className="h-4 w-4 mr-2" />
-                          {t("messages.start_conversation")}
-                        </Button>
-                      </div>
-                    )}
-                  </TabsContent>
-                  
-                  <TabsContent value="unread" className="flex-1 m-0 overflow-y-auto">
-                    {chatsLoading ? (
-                      <div className="p-4">
-                        <AnimatedCardSkeleton count={3} />
-                      </div>
-                    ) : filteredChats.filter(c => c.unreadCount > 0).length > 0 ? (
-                      <div className="divide-y divide-gray-100">
-                        {filteredChats
-                          .filter(chat => chat.unreadCount > 0)
-                          .map((chat: Chat) => {
+                    <TabsContent value="all" className="flex-1 m-0 overflow-y-auto">
+                      {chatsLoading ? (
+                        <div className="p-4">
+                          <AnimatedSkeleton className="h-20 w-full" />
+                          <AnimatedSkeleton className="h-20 w-full" />
+                          <AnimatedSkeleton className="h-20 w-full" />
+                        </div>
+                      ) : filteredChats.length > 0 ? (
+                        <div className="divide-y divide-gray-100">
+                          {filteredChats.map((chat: Chat) => {
                             // For direct chats, show the other user's info
                             let chatName = "";
                             let chatAvatar = "";
@@ -870,7 +768,14 @@ const Messages: React.FC = () => {
                                   </Avatar>
                                   <div className="flex-1 min-w-0">
                                     <div className="flex justify-between items-center">
-                                      <h4 className="font-medium text-sm truncate">{chatName}</h4>
+                                      <h4 className="font-medium text-sm truncate">
+                                        {chatName}
+                                        {chat.type !== 'direct' && (
+                                          <Badge variant="outline" className="ml-1 text-xs">
+                                            {chat.type === 'group' ? t("messages.group") : t("messages.broadcast")}
+                                          </Badge>
+                                        )}
+                                      </h4>
                                       <span className="text-xs text-gray-500">
                                         {chat.lastMessage ? formatMessageTime(chat.lastMessage.createdAt) : 
                                           formatMessageTime(chat.createdAt)}
@@ -884,32 +789,119 @@ const Messages: React.FC = () => {
                                             t(`messages.${chat.lastMessage.type}`)) : 
                                           t("messages.no_messages")}
                                       </p>
-                                      <Badge variant="default" className="ml-1 rounded-full h-5 w-5 p-0 flex items-center justify-center">
-                                        {chat.unreadCount}
-                                      </Badge>
+                                      {chat.unreadCount > 0 && (
+                                        <Badge variant="default" className="ml-1 rounded-full h-5 w-5 p-0 flex items-center justify-center">
+                                          {chat.unreadCount}
+                                        </Badge>
+                                      )}
                                     </div>
                                   </div>
                                 </div>
                               </div>
                             );
                           })}
-                      </div>
-                    ) : (
-                      <div className="flex flex-col justify-center items-center h-full p-6 text-center">
-                        <Check className="h-12 w-12 text-gray-300 mb-3" />
-                        <h3 className="text-lg font-medium mb-1">{t("messages.no_unread")}</h3>
-                        <p className="text-gray-500 text-sm">
-                          {t("messages.all_caught_up")}
-                        </p>
-                      </div>
-                    )}
-                  </TabsContent>
-                </Tabs>
-              </CardContent>
-            </Card>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col justify-center items-center h-full p-6 text-center">
+                          <User className="h-12 w-12 text-gray-300 mb-3" />
+                          <h3 className="text-lg font-medium mb-1">{t("messages.no_conversations")}</h3>
+                          <p className="text-gray-500 text-sm mb-4">
+                            {searchQuery 
+                              ? t("messages.no_conversations_search") 
+                              : t("messages.start_by_connecting")}
+                          </p>
+                          <Button onClick={() => setIsNewChatOpen(true)}>
+                            <Plus className="h-4 w-4 mr-2" />
+                            {t("messages.start_conversation")}
+                          </Button>
+                        </div>
+                      )}
+                    </TabsContent>
+                    
+                    <TabsContent value="unread" className="flex-1 m-0 overflow-y-auto">
+                      {chatsLoading ? (
+                        <div className="p-4">
+                          <AnimatedSkeleton className="h-20 w-full" />
+                          <AnimatedSkeleton className="h-20 w-full" />
+                          <AnimatedSkeleton className="h-20 w-full" />
+                        </div>
+                      ) : filteredChats.filter(c => c.unreadCount > 0).length > 0 ? (
+                        <div className="divide-y divide-gray-100">
+                          {filteredChats
+                            .filter(chat => chat.unreadCount > 0)
+                            .map((chat: Chat) => {
+                              // For direct chats, show the other user's info
+                              let chatName = "";
+                              let chatAvatar = "";
+                              
+                              if (chat.type === 'direct') {
+                                const otherMember = chat.members.find(m => m.userId !== userId);
+                                if (otherMember?.user) {
+                                  chatName = otherMember.user.name;
+                                  chatAvatar = otherMember.user.avatar || "";
+                                }
+                              } else {
+                                chatName = chat.name || "Group";
+                                chatAvatar = chat.avatarUrl || "";
+                              }
+                              
+                              return (
+                                <div 
+                                  key={chat.id}
+                                  className={`p-3 hover:bg-gray-50 cursor-pointer ${
+                                    selectedChatId === chat.id ? 'bg-gray-50' : ''
+                                  }`}
+                                  onClick={() => setSelectedChatId(chat.id)}
+                                >
+                                  <div className="flex items-center space-x-3">
+                                    <Avatar className="h-10 w-10">
+                                      <AvatarImage src={chatAvatar} />
+                                      <AvatarFallback>
+                                        {chatName.substring(0, 2).toUpperCase()}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex justify-between items-center">
+                                        <h4 className="font-medium text-sm truncate">{chatName}</h4>
+                                        <span className="text-xs text-gray-500">
+                                          {chat.lastMessage ? formatMessageTime(chat.lastMessage.createdAt) : 
+                                            formatMessageTime(chat.createdAt)}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between items-center">
+                                        <p className="text-xs text-gray-500 truncate">
+                                          {chat.lastMessage ? 
+                                            (chat.lastMessage.type === 'text' ? 
+                                              chat.lastMessage.content : 
+                                              t(`messages.${chat.lastMessage.type}`)) : 
+                                            t("messages.no_messages")}
+                                        </p>
+                                        <Badge variant="default" className="ml-1 rounded-full h-5 w-5 p-0 flex items-center justify-center">
+                                          {chat.unreadCount}
+                                        </Badge>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col justify-center items-center h-full p-6 text-center">
+                          <Check className="h-12 w-12 text-gray-300 mb-3" />
+                          <h3 className="text-lg font-medium mb-1">{t("messages.no_unread")}</h3>
+                          <p className="text-gray-500 text-sm">
+                            {t("messages.all_caught_up")}
+                          </p>
+                        </div>
+                      )}
+                    </TabsContent>
+                  </Tabs>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
-          {/* Chat Area */}
           <div className="md:col-span-2">
             <Card className="h-[calc(100vh-220px)] flex flex-col">
               {selectedChat ? (
@@ -917,7 +909,6 @@ const Messages: React.FC = () => {
                   <CardHeader className="px-4 py-3 border-b flex-shrink-0">
                     <div className="flex justify-between items-center">
                       <div className="flex items-center space-x-3">
-                        {/* Show back button on mobile view */}
                         {!showChatList && (
                           <Button
                             variant="ghost"
@@ -943,7 +934,6 @@ const Messages: React.FC = () => {
                                 {chatInfo}
                               </Badge>
                             ) : (
-                              // Show online status or last seen for direct chats
                               <span className="text-xs text-gray-500">
                                 {t("messages.online")}
                               </span>
@@ -1011,14 +1001,12 @@ const Messages: React.FC = () => {
                       </div>
                     ) : (messagesData as any)?.messages?.length > 0 ? (
                       <div className="space-y-6">
-                        {/* Chat start information */}
                         <div className="flex justify-center">
                           <Badge variant="outline" className="py-1 px-3">
                             {format(new Date(selectedChat.createdAt), 'MMMM d, yyyy')}
                           </Badge>
                         </div>
                         
-                        {/* Messages grouped by date */}
                         {Object.entries(groupMessagesByDate((messagesData as any)?.messages || [])).map(([date, messages]) => (
                           <div key={date} className="space-y-4">
                             <div className="flex justify-center">
@@ -1086,7 +1074,6 @@ const Messages: React.FC = () => {
                           </div>
                         ))}
                         
-                        {/* Scroll anchor for new messages */}
                         <div ref={messagesEndRef} />
                       </div>
                     ) : (

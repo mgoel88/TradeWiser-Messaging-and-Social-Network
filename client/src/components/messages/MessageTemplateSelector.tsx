@@ -22,11 +22,12 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { apiRequest } from '@/lib/queryClient';
 
-interface MessageTemplate {
+export interface MessageTemplate {
   id: number;
   userId: number;
   name: string;
   template: string;
+  content?: string; // Added for compatibility
   templateType: 'buy_request' | 'sell_offer' | 'negotiation' | 'custom';
   defaultValues: any;
   isDefault: boolean;
@@ -60,8 +61,9 @@ export function MessageTemplateSelector({
   const { data: userTemplates, isLoading: isLoadingUserTemplates } = useQuery({
     queryKey: ['/api/message-templates/user', userId],
     queryFn: async () => {
-      const res = await apiRequest(`/api/message-templates/user/${userId}`);
-      return res.templates || [];
+      const res = await apiRequest('GET', `/api/message-templates/user/${userId}`);
+      const data = await res.json();
+      return data?.templates || [];
     },
     enabled: !!userId && isOpen,
   });
@@ -70,8 +72,9 @@ export function MessageTemplateSelector({
   const { data: defaultTemplates, isLoading: isLoadingDefaultTemplates } = useQuery({
     queryKey: ['/api/message-templates/defaults'],
     queryFn: async () => {
-      const res = await apiRequest('/api/message-templates/defaults?type=all');
-      return res.templates || [];
+      const res = await apiRequest('GET', '/api/message-templates/defaults?type=all');
+      const data = await res.json();
+      return data?.templates || [];
     },
     enabled: isOpen,
   });

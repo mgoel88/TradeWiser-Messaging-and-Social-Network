@@ -8,22 +8,47 @@ async function throwIfResNotOk(res: Response) {
 }
 
 export async function apiRequest(
-  method: string,
-  url: string,
+  method: string | RequestInfo,
+  url?: string | RequestInit,
   data?: unknown | undefined,
 ): Promise<Response> {
   try {
-    const res = await fetch(url, {
-      method,
-      headers: data ? { "Content-Type": "application/json" } : {},
-      body: data ? JSON.stringify(data) : undefined,
-      credentials: "include",
-    });
-
-    await throwIfResNotOk(res);
-    return res;
+    // Handle the case where method is a URL string and url is options
+    if (typeof method === 'string' && typeof url === 'string') {
+      // Traditional usage - method, url, data
+      const res = await fetch(url, {
+        method,
+        headers: data ? { "Content-Type": "application/json" } : {},
+        body: data ? JSON.stringify(data) : undefined,
+        credentials: "include",
+      });
+      
+      await throwIfResNotOk(res);
+      return res;
+    } else if (typeof method === 'string' && typeof url === 'object') {
+      // Alternative usage - url, options
+      const finalUrl = method;
+      const options = url;
+      
+      const res = await fetch(finalUrl, {
+        ...options,
+        headers: data ? { 
+          ...options.headers,
+          "Content-Type": "application/json" 
+        } : options.headers,
+        credentials: "include",
+      });
+      
+      await throwIfResNotOk(res);
+      return res;
+    } else {
+      // Direct fetch call
+      const res = await fetch(method as RequestInfo, url as RequestInit);
+      await throwIfResNotOk(res);
+      return res;
+    }
   } catch (error) {
-    console.error(`API request error (${method} ${url}):`, error);
+    console.error(`API request error (${typeof method === 'string' ? method : 'fetch'} ${typeof url === 'string' ? url : '[object]'}):`, error);
     throw error;
   }
 }
