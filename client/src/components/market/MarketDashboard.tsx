@@ -27,7 +27,7 @@ export function MarketDashboard() {
 
       <Card className="p-4 md:col-span-2">
         <h2 className="text-xl font-bold mb-4">Trading Activity</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4" data-tour="market-dashboard">
           <div className="stat-card">
             <h3>Total Volume</h3>
             <p className="text-2xl font-bold">₹2.4M</p>

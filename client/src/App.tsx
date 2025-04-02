@@ -38,11 +38,11 @@ function Router() {
   useEffect(() => {
     const publicPages = ['/login', '/register'];
     const isPrivatePage = !publicPages.includes(location);
-    
+
     if (isPrivatePage && (!session || (session && typeof session === 'object' && 'message' in session && session.message === "Not authenticated"))) {
       setLocation('/login');
     }
-    
+
     // Redirect to home if already authenticated and trying to access login/register
     if (publicPages.includes(location) && session && typeof session === 'object' && 'user' in session && session.user) {
       setLocation('/');
@@ -71,6 +71,16 @@ function Router() {
   );
 }
 
+function Onboarding() {
+  // Placeholder for a more complex onboarding experience
+  return (
+    <div>
+      <h1>Welcome to the App!</h1>
+      <p>This is a placeholder for a more detailed onboarding experience.</p>
+    </div>
+  );
+}
+
 function App() {
   const [location] = useLocation();
   const isAuthPage = location === '/login' || location === '/register';
@@ -83,6 +93,7 @@ function App() {
         {!isAuthPage && <Footer />}
         {!isAuthPage && <MobileNavigation />}
         <Toaster />
+        <Onboarding />
       </NotificationsProvider>
     </QueryClientProvider>
   );
