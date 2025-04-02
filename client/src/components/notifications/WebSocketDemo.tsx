@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { useWebSocket } from '@/hooks/use-websocket';
 import { useToast } from '@/hooks/use-toast';
@@ -14,10 +13,10 @@ export default function WebSocketDemo() {
     if (lastMessage) {
       try {
         const data = typeof lastMessage === 'string' ? JSON.parse(lastMessage) : lastMessage;
-        
+
         if (data.type === 'notification') {
           setNotifications(prev => [data, ...prev].slice(0, 5));
-          
+
           toast({
             title: data.title,
             description: data.message,

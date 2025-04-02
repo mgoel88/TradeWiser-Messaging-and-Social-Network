@@ -4,12 +4,11 @@ import { PriceHistoryChart } from '../commodity/PriceHistoryChart';
 import { PriceTicker } from '../commodity/PriceTicker';
 import { RecentPriceUpdates } from '../commodity/RecentPriceUpdates';
 import { useWebSocket } from '@/hooks/use-websocket';
-import { useQuery } from '@tanstack/react-query'; // Assuming this is used for fetching data
+import { useQuery } from '@tanstack/react-query';
 
 // Placeholder function - replace with your actual implementation
 function getQueryFn() {
   return async () => {
-    // Fetch data from your API endpoints here
     const response = await fetch('/api/data');
     return await response.json();
   };
@@ -31,26 +30,27 @@ export default function MarketDashboard() {
     queryFn: getQueryFn()
   });
 
-  // Real-time price updates integration
-  const { lastMessage, sendMessage } = useWebSocket();
+  const { lastMessage, sendMessage, readyState } = useWebSocket();
   const [priceUpdates, setPriceUpdates] = useState([]);
 
   useEffect(() => {
-    if (lastMessage?.type === 'price_update') {
+    if (readyState === 1 && lastMessage?.type === 'price_update') { //Check connection status before processing message
       setPriceUpdates(prev => [lastMessage.data, ...prev].slice(0, 5));
     }
-  }, [lastMessage]);
+  }, [lastMessage, readyState]);
 
   useEffect(() => {
-    // Subscribe to price updates
-    sendMessage({ type: 'subscribe', channel: 'price_updates' });
-    return () => {
-      sendMessage({ type: 'unsubscribe', channel: 'price_updates' });
-    };
-  }, []);
+    if (readyState === 1) { //Only send message if connection is open
+      sendMessage({ type: 'subscribe', channel: 'price_updates' });
+      return () => {
+        sendMessage({ type: 'unsubscribe', channel: 'price_updates' });
+      };
+    }
+  }, [sendMessage, readyState]);
+
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"> {/* Added lg grid for better layout */}
       <Card className="p-4">
         <h2 className="text-xl font-bold mb-4">Live Price Updates</h2>
         <PriceTicker autoScroll={true} scrollInterval={3000} />
@@ -65,12 +65,12 @@ export default function MarketDashboard() {
         {marketAnalysis && (
           <div>
             <h3>Market Analysis:</h3>
-            <pre>{JSON.stringify(marketAnalysis, null, 2)}</pre> {/* Display market analysis data */}
+            <pre>{JSON.stringify(marketAnalysis, null, 2)}</pre>
           </div>
         )}
       </Card>
 
-      <Card className="p-4 md:col-span-2">
+      <Card className="p-4">
         <h2 className="text-xl font-bold mb-4">Trading Activity</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4" data-tour="market-dashboard">
           <div className="stat-card">
@@ -92,13 +92,13 @@ export default function MarketDashboard() {
         {recommendations && (
           <div>
             <h3>Recommendations:</h3>
-            <pre>{JSON.stringify(recommendations, null, 2)}</pre> {/* Display recommendations */}
+            <pre>{JSON.stringify(recommendations, null, 2)}</pre>
           </div>
         )}
         {marketNews && (
           <div>
             <h3>Market News:</h3>
-            <pre>{JSON.stringify(marketNews, null, 2)}</pre> {/* Display market news */}
+            <pre>{JSON.stringify(marketNews, null, 2)}</pre>
           </div>
         )}
       </Card>

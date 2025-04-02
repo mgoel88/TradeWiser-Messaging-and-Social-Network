@@ -78,7 +78,8 @@ export default function ContractsPage() {
     queryKey: ['/api/contracts'],
     queryFn: async () => {
       const res = await apiRequest('GET', '/api/contracts');
-      return res.json();
+      const data = await res.json();
+      return Array.isArray(data) ? data : data.contracts || [];
     },
     enabled: !!sessionData?.user?.id,
   });
