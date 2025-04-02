@@ -7,7 +7,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
-import { useToast } from '@/hooks/use-toast';
+import { useToast, toast } from '@/hooks/use-toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -69,8 +69,8 @@ export default function ContractsPage() {
   const { data: sessionData } = useQuery({
     queryKey: ['/api/auth/session'],
     queryFn: async () => {
-      const res = await apiRequest('/api/auth/session');
-      return res;
+      const res = await apiRequest('GET', '/api/auth/session');
+      return res.json();
     },
   });
 
@@ -104,8 +104,8 @@ export default function ContractsPage() {
     const { data: allContractsData, isLoading: isLoadingAllContracts } = useQuery({
       queryKey: ['/api/contracts'],
       queryFn: async () => {
-        const res = await apiRequest('/api/contracts');
-        return res || [];
+        const res = await apiRequest('GET', '/api/contracts');
+        return res.json();
       },
       enabled: !!userId,
     });
@@ -114,8 +114,8 @@ export default function ContractsPage() {
     const { data: buyerContractsData, isLoading: isLoadingBuyerContracts } = useQuery({
       queryKey: ['/api/contracts', 'buyer'],
       queryFn: async () => {
-        const res = await apiRequest('/api/contracts?role=buyer');
-        return res || [];
+        const res = await apiRequest('GET', '/api/contracts?role=buyer');
+        return res.json();
       },
       enabled: !!userId,
     });
@@ -124,8 +124,8 @@ export default function ContractsPage() {
     const { data: sellerContractsData, isLoading: isLoadingSellerContracts } = useQuery({
       queryKey: ['/api/contracts', 'seller'],
       queryFn: async () => {
-        const res = await apiRequest('/api/contracts?role=seller');
-        return res || [];
+        const res = await apiRequest('GET', '/api/contracts?role=seller');
+        return res.json();
       },
       enabled: !!userId,
     });
@@ -134,9 +134,10 @@ export default function ContractsPage() {
     const { data: commoditiesData } = useQuery({
       queryKey: ['/api/commodities'],
       queryFn: async () => {
-        const res = await apiRequest('/api/commodities');
-        if (res && 'commodities' in res) {
-          return res.commodities || [];
+        const res = await apiRequest('GET', '/api/commodities');
+        const data = await res.json();
+        if (data && 'commodities' in data) {
+          return data.commodities || [];
         }
         return [];
       },
@@ -147,9 +148,10 @@ export default function ContractsPage() {
     const { data: connectionsData } = useQuery({
       queryKey: ['/api/connections'],
       queryFn: async () => {
-        const res = await apiRequest('/api/connections');
-        if (res && 'connections' in res) {
-          return res.connections || [];
+        const res = await apiRequest('GET', '/api/connections');
+        const data = await res.json();
+        if (data && 'connections' in data) {
+          return data.connections || [];
         }
         return [];
       },
@@ -169,18 +171,7 @@ export default function ContractsPage() {
     // Create contract mutation (retained from original)
     const createContractMutation = useMutation({
       mutationFn: async (contractData: ContractFormValues) => {
-        const response = await fetch('/api/contracts', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(contractData),
-        });
-  
-        if (!response.ok) {
-          throw new Error('Failed to create contract');
-        }
-  
+        const response = await apiRequest('POST', '/api/contracts', contractData);
         return response.json();
       },
       onSuccess: () => {
@@ -221,19 +212,107 @@ export default function ContractsPage() {
       createContractMutation.mutate(data);
     };
   
-    const ContractCard = ({ contract }: { contract: any }) => (
-      <div className="mb-4"> {/* Simplified card - only showing essential info */}
-          <div className="flex items-center justify-between">
+    const ContractCard = ({ contract }: { contract: any }) => {
+      // Function to generate contract summary text for WhatsApp
+      const generateContractSummary = () => {
+        return `*Contract Summary: ${contract.name}*
+Contract #: ${contract.contractNumber || 'N/A'}
+Status: ${contract.status || 'Draft'}
+Commodity: ${contract.commodityName || 'N/A'}
+Quantity: ${contract.quantity || 0} ${contract.unit || 'units'} at ₹${contract.pricePerUnit || 0}/unit
+Total Value: ₹${contract.totalAmount || 0}
+Delivery: ${contract.deliveryDate ? formatDate(contract.deliveryDate) : 'Not specified'} at ${contract.deliveryLocation || 'Not specified'}
+Quality: ${contract.quality || 'Not specified'}
+Payment Terms: ${contract.paymentTerms || 'Not specified'}
+      
+This is a digital contract generated via WizXConnect. For full details, please login to your account.`;
+      };
+
+      // Function to share contract via WhatsApp
+      const shareViaWhatsApp = () => {
+        const contractText = generateContractSummary();
+        const encodedText = encodeURIComponent(contractText);
+        const whatsappUrl = `https://wa.me/?text=${encodedText}`;
+        window.open(whatsappUrl, '_blank');
+      };
+
+      // Function to view contract details (placeholder)
+      const viewContract = () => {
+        toast({
+          title: 'Viewing Contract',
+          description: `Opening details for ${contract.name}`,
+        });
+        // Future implementation: Open contract details view
+      };
+
+      // Function to sign contract (placeholder)
+      const signContract = () => {
+        toast({
+          title: 'Signing Contract',
+          description: 'This feature will be available soon',
+        });
+        // Future implementation: Contract signing flow
+      };
+
+      return (
+        <Card className="mb-4">
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-2">
               <div>
-                  <h3 className="text-lg font-medium">{contract.name}</h3>
-                  <p className="text-sm text-muted-foreground">Contract #: {contract.contractNumber}</p>
+                <h3 className="text-lg font-medium">{contract.name}</h3>
+                <p className="text-sm text-muted-foreground">Contract #: {contract.contractNumber || 'Draft'}</p>
               </div>
-              <Badge variant="outline" className={getStatusBadgeColor(contract.status)}>
-                  {contract.status.charAt(0).toUpperCase() + contract.status.slice(1)}
+              <Badge variant="outline" className={getStatusBadgeColor(contract.status || 'draft')}>
+                {contract.status ? contract.status.charAt(0).toUpperCase() + contract.status.slice(1) : 'Draft'}
               </Badge>
+            </div>
+            
+            {/* Contract preview section */}
+            <div className="mt-2 text-sm text-muted-foreground">
+              <div className="grid grid-cols-2 gap-2">
+                <div>Commodity: {contract.commodityName || 'N/A'}</div>
+                <div>Quantity: {contract.quantity || 0} {contract.unit || 'units'}</div>
+                <div>Price: ₹{contract.pricePerUnit || 0}/{contract.unit || 'unit'}</div>
+                <div>Total: {formatCurrency(contract.totalAmount || 0)}</div>
+              </div>
+            </div>
+            
+            {/* Action buttons */}
+            <div className="flex justify-end space-x-2 mt-4">
+              <Button size="sm" variant="outline" onClick={viewContract}>
+                <Eye className="h-4 w-4 mr-1" />
+                View
+              </Button>
+              
+              {contract.status !== 'signed' && contract.status !== 'completed' && (
+                <Button size="sm" variant="outline" onClick={signContract}>
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                  Sign
+                </Button>
+              )}
+              
+              <Button 
+                size="sm" 
+                onClick={shareViaWhatsApp}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                <svg 
+                  className="h-4 w-4 mr-1" 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  viewBox="0 0 24 24" 
+                  fill="currentColor"
+                >
+                  <path 
+                    d="M17.6 6.3C16.2 5 14.3 4.2 12.3 4.2 8.2 4.2 4.8 7.6 4.8 11.7 4.8 13.1 5.2 14.5 5.9 15.7L4.7 19.3 8.4 18.1C9.5 18.7 10.9 19 12.3 19 16.4 19 19.8 15.6 19.8 11.5 19.8 9.5 19 7.7 17.6 6.3ZM12.3 17.6C11.1 17.6 9.8 17.3 8.8 16.8L8.5 16.6 6.4 17.3 7.1 15.2 6.9 14.9C6.3 13.8 6 12.7 6 11.5 6 8.4 8.9 5.7 12.2 5.7 13.9 5.7 15.5 6.3 16.6 7.5 17.7 8.7 18.3 10.2 18.3 11.9 18.3 15 15.5 17.6 12.3 17.6ZM15.6 13C15.4 12.9 14.5 12.5 14.3 12.4 14.1 12.3 14 12.3 13.8 12.5 13.6 12.7 13.3 13.1 13.2 13.2 13.1 13.3 12.9 13.4 12.7 13.3 11.9 12.9 11.4 12.6 10.8 11.9 10.4 11.4 10.1 10.8 10 10.6 9.9 10.4 10 10.3 10.1 10.2 10.2 10.1 10.3 10 10.4 9.9 10.5 9.8 10.5 9.7 10.6 9.6 10.7 9.5 10.6 9.4 10.6 9.3 10.5 9.2 10.1 8.3 10 8 9.8 7.6 9.7 7.7 9.5 7.7 9.4 7.7 9.3 7.7 9.1 7.7 9 7.7 8.7 7.8 8.5 8 8.3 8.2 8.8 9.1 9.7 10.8 10.7 12 11.1 12.5 11.4 12.9 11.5 13.3 11.6 13.7 11.6 14.2 11.5 14.6 11.4 15.1 11.7 15.4 11.7 15.6 11.6 15.6 11.3 15.7 11 15.7 10.7 15.6 13Z" 
+                  />
+                </svg>
+                Share
+              </Button>
+            </div>
           </div>
-      </div>
-    );
+        </Card>
+      );
+    };
 
   const ContractLoadingSkeleton = () => (
     <div className="space-y-4">
@@ -325,12 +404,13 @@ export default function ContractsPage() {
       </Tabs>
 
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <div className="p-6"> {/* Simple dialog content */}
+        <div className="p-6 max-h-[90vh] overflow-y-auto">
           <h2 className="text-xl font-bold mb-4">Create New Contract</h2>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)}>
-              {/* Retained form elements from original, but significantly simplified */}
-              <FormField
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              {/* Basic Contract Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
                   control={form.control}
                   name="name"
                   render={({ field }) => (
@@ -343,9 +423,311 @@ export default function ContractsPage() {
                     </FormItem>
                   )}
                 />
-              <Button type="submit" disabled={createContractMutation.isPending}>
-                {createContractMutation.isPending ? "Creating..." : "Create"}
-              </Button>
+                
+                <FormField
+                  control={form.control}
+                  name="commodityId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Commodity</FormLabel>
+                      <FormControl>
+                        <select 
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          value={field.value}
+                          onChange={(e) => {
+                            const commodityId = parseInt(e.target.value);
+                            field.onChange(commodityId);
+                            
+                            // Find commodity name
+                            const selectedCommodity = commoditiesData?.find(c => c.id === commodityId);
+                            if (selectedCommodity) {
+                              form.setValue('commodityName', selectedCommodity.name);
+                            }
+                          }}
+                        >
+                          <option value="">Select Commodity</option>
+                          {commoditiesData?.map((commodity: any) => (
+                            <option key={commodity.id} value={commodity.id}>
+                              {commodity.name}
+                            </option>
+                          ))}
+                        </select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              {/* Parties Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="buyerId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Buyer</FormLabel>
+                      <FormControl>
+                        <select
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          value={field.value || ''}
+                          onChange={(e) => {
+                            const value = e.target.value ? parseInt(e.target.value) : undefined;
+                            field.onChange(value);
+                          }}
+                        >
+                          <option value="">Select Buyer</option>
+                          <option value={userId}>Me (as Buyer)</option>
+                          {connectionsData?.map((connection: any) => (
+                            <option key={connection.id} value={connection.userId}>
+                              {connection.name}
+                            </option>
+                          ))}
+                        </select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="sellerId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Seller</FormLabel>
+                      <FormControl>
+                        <select
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          value={field.value || ''}
+                          onChange={(e) => {
+                            const value = e.target.value ? parseInt(e.target.value) : undefined;
+                            field.onChange(value);
+                          }}
+                        >
+                          <option value="">Select Seller</option>
+                          <option value={userId}>Me (as Seller)</option>
+                          {connectionsData?.map((connection: any) => (
+                            <option key={connection.id} value={connection.userId}>
+                              {connection.name}
+                            </option>
+                          ))}
+                        </select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              {/* Quantity and Price */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <FormField
+                  control={form.control}
+                  name="quantity"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Quantity</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          min="1" 
+                          placeholder="e.g., 1000" 
+                          {...field}
+                          onChange={(e) => {
+                            const value = parseFloat(e.target.value);
+                            field.onChange(isNaN(value) ? undefined : value);
+                            
+                            // Auto-calculate total amount
+                            const pricePerUnit = form.getValues('pricePerUnit');
+                            if (!isNaN(value) && pricePerUnit) {
+                              form.setValue('totalAmount', value * pricePerUnit);
+                            }
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="unit"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Unit</FormLabel>
+                      <FormControl>
+                        <select
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          {...field}
+                        >
+                          <option value="kg">Kilogram (kg)</option>
+                          <option value="ton">Metric Ton</option>
+                          <option value="quintal">Quintal</option>
+                          <option value="bag">Bag</option>
+                        </select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="pricePerUnit"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Price per Unit (₹)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          min="0.01" 
+                          step="0.01" 
+                          placeholder="e.g., 50.00" 
+                          {...field}
+                          onChange={(e) => {
+                            const value = parseFloat(e.target.value);
+                            field.onChange(isNaN(value) ? undefined : value);
+                            
+                            // Auto-calculate total amount
+                            const quantity = form.getValues('quantity');
+                            if (!isNaN(value) && quantity) {
+                              form.setValue('totalAmount', quantity * value);
+                            }
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              {/* Total Amount (calculated) */}
+              <FormField
+                control={form.control}
+                name="totalAmount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Total Amount (₹)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        readOnly 
+                        disabled
+                        {...field}
+                        value={field.value || 0}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              {/* Delivery Details */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="deliveryDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Delivery Date</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="deliveryLocation"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Delivery Location</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., Warehouse at Delhi APMC" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              {/* Terms Section */}
+              <FormField
+                control={form.control}
+                name="quality"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Quality Specifications</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., Grade A, Moisture 12%" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="deliveryTerms"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Delivery Terms</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., Door delivery, Ex-warehouse" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="paymentTerms"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Payment Terms</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., 50% advance, 50% on delivery" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Additional Notes</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Any additional terms or notes" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsCreateDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={createContractMutation.isPending}
+                >
+                  {createContractMutation.isPending ? "Creating..." : "Create Contract"}
+                </Button>
+              </div>
             </form>
           </Form>
         </div>
