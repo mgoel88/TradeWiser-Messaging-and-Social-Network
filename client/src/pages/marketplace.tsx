@@ -193,11 +193,17 @@ export default function Marketplace() {
         <div className="md:col-span-3 space-y-6">
           <Tabs defaultValue="buy" onValueChange={setTab}>
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="buy">
+              <TabsTrigger 
+                value="buy"
+                className="data-[state=active]:bg-green-100 data-[state=active]:text-green-900"
+              >
                 <TrendingUp size={16} className="mr-2" />
                 Buy
               </TabsTrigger>
-              <TabsTrigger value="sell">
+              <TabsTrigger 
+                value="sell"
+                className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-900"
+              >
                 <TrendingDown size={16} className="mr-2" />
                 Sell
               </TabsTrigger>
