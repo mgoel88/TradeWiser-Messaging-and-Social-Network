@@ -80,16 +80,17 @@ const Header = () => {
           {/* Search Bar - Desktop */}
           <div className="flex-1 max-w-xl mx-6">
             <form onSubmit={handleSearch}>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">
+              <div className="relative group">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 group-focus-within:text-primary transition-colors">
                   <Search className="h-4 w-4" />
                 </span>
                 <Input
                   type="text"
                   placeholder={t("common.search_placeholder")}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-full bg-gray-50"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-full bg-gray-50 focus:bg-white transition-all hover:border-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/10"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  aria-label={t("common.search")}
                 />
               </div>
             </form>
