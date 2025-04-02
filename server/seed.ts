@@ -9,7 +9,7 @@ import {
 
 async function main() {
   console.log("Starting database seeding...");
-  
+
   // Clean existing data
   console.log("Cleaning existing data...");
   // Delete dependent data first (foreign key constraints)
@@ -31,17 +31,43 @@ async function main() {
   await db.delete(commodities);
   await db.delete(circles);
   await db.delete(users);
-  
+
   console.log("Creating seed data...");
 
   // Create commodities
   console.log("Creating commodities...");
-  const [wheat] = await db.insert(commodities).values({
+  const [wheat] = await db.insert(commodities).values([
+  {
     name: "Wheat",
-    description: "Staple grain used for making flour",
+    description: "Premium quality wheat for flour production",
     category: "grain",
     icon: "wheat-awn"
-  }).returning();
+  },
+  {
+    name: "Basmati Rice",
+    description: "Premium long-grain aromatic rice",
+    category: "grain",
+    icon: "grain"
+  },
+  {
+    name: "Yellow Soybean",
+    description: "High protein content soybean for oil extraction",
+    category: "oilseed",
+    icon: "bean"
+  },
+  {
+    name: "Black Pepper",
+    description: "Premium quality black pepper",
+    category: "spice", 
+    icon: "pepper"
+  },
+  {
+    name: "Cotton",
+    description: "Raw cotton for textile industry",
+    category: "fiber",
+    icon: "cotton"
+  }
+]).returning();
 
   const [chana] = await db.insert(commodities).values({
     name: "Chana (Chickpea)",
@@ -452,7 +478,7 @@ async function main() {
   // Create posts
   console.log("Creating posts...");
   const now = new Date();
-  
+
   await db.insert(posts).values({
     userId: rajesh.id,
     content: "Major price update for Chana: Prices have decreased by ₹120/quintal today in Delhi markets due to increased arrivals from Rajasthan. Good quality Chana is now trading at ₹5200-5350/quintal. #ChanaPrices #DelhiMarket",
@@ -536,10 +562,10 @@ async function main() {
     registrationNumber: "MSME-DEL-12345",
     documents: ["id.jpg", "business_registration.pdf"]
   });
-  
+
   // Create marketplace listings
   console.log("Creating marketplace listings...");
-  
+
   // Wheat listing by Priya
   const [wheatListing] = await db.insert(listings).values({
     userId: priya.id,
@@ -558,7 +584,7 @@ async function main() {
     status: "active",
     createdAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000) // 2 days ago
   }).returning();
-  
+
   // Chana listing by Sunita
   const [chanaListing] = await db.insert(listings).values({
     userId: sunita.id,
@@ -577,7 +603,7 @@ async function main() {
     status: "active",
     createdAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000) // 3 days ago
   }).returning();
-  
+
   // Buy request for Rice by Rajesh
   const [riceBuyListing] = await db.insert(listings).values({
     userId: rajesh.id,
@@ -595,7 +621,7 @@ async function main() {
     status: "active",
     createdAt: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000) // 5 days ago
   }).returning();
-  
+
   // Soybean buy request by Vijay
   const [soybeanBuyListing] = await db.insert(listings).values({
     userId: vijay.id,
@@ -613,10 +639,10 @@ async function main() {
     status: "active",
     createdAt: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) // 7 days ago
   }).returning();
-  
+
   // Create offers for listings
   console.log("Creating offers for marketplace listings...");
-  
+
   // Offer for wheat from Rajesh
   const [wheatOffer] = await db.insert(offers).values({
     listingId: wheatListing.id,
@@ -630,7 +656,7 @@ async function main() {
     createdAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
     expiresAt: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000) // 2 days from now
   }).returning();
-  
+
   // Offer for Chana from Amit
   const [chanaOffer] = await db.insert(offers).values({
     listingId: chanaListing.id,
@@ -645,7 +671,7 @@ async function main() {
     expiresAt: new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000), // 1 day from now
     acceptedAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000) // 1 day ago
   }).returning();
-  
+
   // Offer for rice buy listing from Bengal Traders
   const [riceOffer] = await db.insert(offers).values({
     listingId: riceBuyListing.id,
@@ -660,10 +686,10 @@ async function main() {
     expiresAt: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000), // 2 days from now
     acceptedAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000) // 2 days ago
   }).returning();
-  
+
   // Create trades
   console.log("Creating trades...");
-  
+
   // Trade from the accepted Chana offer
   const [chanaTrade] = await db.insert(trades).values({
     offerId: chanaOffer.id,
@@ -679,7 +705,7 @@ async function main() {
     paymentStatus: "pending",
     deliveryStatus: "pending"
   }).returning();
-  
+
   // Trade from the accepted Rice offer
   const [riceTrade] = await db.insert(trades).values({
     offerId: riceOffer.id,
@@ -700,10 +726,10 @@ async function main() {
     buyerReview: "Excellent quality rice, exactly as described. Delivery was on time and packaging was secure.",
     sellerReview: "Prompt payment and good communication throughout the transaction. Would do business again."
   }).returning();
-  
+
   // Create trade contracts
   console.log("Creating trade contracts...");
-  
+
   // Contract for the Chana trade
   const [chanaContract] = await db.insert(tradeContracts).values({
     tradeId: chanaTrade.id,
@@ -726,11 +752,12 @@ async function main() {
     sellerSigned: false,
     buyerSignedAt: new Date(now.getTime() - 12 * 60 * 60 * 1000) // 12 hours ago
   }).returning();
-  
+
   // Contract for the completed Rice trade
   await db.insert(tradeContracts).values({
     tradeId: riceTrade.id,
     buyerId: rajesh.id,
+    sellerid,
     sellerId: bengalTraders.id,
     title: "Purchase Agreement - 100 Quintals Basmati Rice",
     commodityId: rice.id,
@@ -752,10 +779,10 @@ async function main() {
     sellerSignedAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000 + 4 * 60 * 60 * 1000), // 2 days - 4 hours ago
     contractDocument: "rice_trade_contract.pdf"
   });
-  
+
   // Create message templates
   console.log("Creating message templates...");
-  
+
   // Buy request template
   await db.insert(messageTemplates).values({
     userId: rajesh.id,
@@ -777,7 +804,7 @@ async function main() {
     lastUsedAt: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
     createdAt: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) // 30 days ago
   });
-  
+
   // Sell offer template
   await db.insert(messageTemplates).values({
     userId: priya.id,
@@ -800,7 +827,7 @@ async function main() {
     lastUsedAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
     createdAt: new Date(now.getTime() - 45 * 24 * 60 * 60 * 1000) // 45 days ago
   });
-  
+
   // Negotiation template
   await db.insert(messageTemplates).values({
     userId: amit.id,
@@ -820,10 +847,10 @@ async function main() {
     lastUsedAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
     createdAt: new Date(now.getTime() - 20 * 24 * 60 * 60 * 1000) // 20 days ago
   });
-  
+
   // Create chats and messages
   console.log("Creating chats and messages...");
-  
+
   // Direct chat between Priya and Rajesh
   const [priyaRajeshChat] = await db.insert(chats).values({
     name: null, // Direct chats don't need a name
@@ -833,7 +860,7 @@ async function main() {
     lastMessageAt: new Date(now.getTime() - 6 * 60 * 60 * 1000), // 6 hours ago
     metadata: {}
   }).returning();
-  
+
   // Add chat members
   await db.insert(chatMembers).values({
     chatId: priyaRajeshChat.id,
@@ -841,14 +868,14 @@ async function main() {
     role: "member",
     isActive: true
   });
-  
+
   await db.insert(chatMembers).values({
     chatId: priyaRajeshChat.id,
     userId: rajesh.id,
     role: "member",
     isActive: true
   });
-  
+
   // Add messages to the Priya-Rajesh chat
   await db.insert(messages).values({
     chatId: priyaRajeshChat.id,
@@ -859,7 +886,7 @@ async function main() {
     status: "read",
     metadata: {}
   });
-  
+
   await db.insert(messages).values({
     chatId: priyaRajeshChat.id,
     senderId: rajesh.id,
@@ -869,7 +896,7 @@ async function main() {
     status: "read",
     metadata: {}
   });
-  
+
   // Template-based sell offer message
   await db.insert(messages).values({
     chatId: priyaRajeshChat.id,
@@ -888,7 +915,7 @@ async function main() {
       quality: "Premium, Moisture 11-12%"
     }
   });
-  
+
   await db.insert(messages).values({
     chatId: priyaRajeshChat.id,
     senderId: rajesh.id,
@@ -898,7 +925,7 @@ async function main() {
     status: "read",
     metadata: {}
   });
-  
+
   await db.insert(messages).values({
     chatId: priyaRajeshChat.id,
     senderId: priya.id,
@@ -908,7 +935,7 @@ async function main() {
     status: "read",
     metadata: {}
   });
-  
+
   await db.insert(messages).values({
     chatId: priyaRajeshChat.id,
     senderId: rajesh.id,
@@ -918,7 +945,7 @@ async function main() {
     status: "read",
     metadata: {}
   });
-  
+
   await db.insert(messages).values({
     chatId: priyaRajeshChat.id,
     senderId: rajesh.id,
@@ -934,7 +961,7 @@ async function main() {
       totalAmount: 200 * 2125
     }
   });
-  
+
   await db.insert(messages).values({
     chatId: priyaRajeshChat.id,
     senderId: priya.id,
@@ -944,7 +971,7 @@ async function main() {
     status: "read",
     metadata: {}
   });
-  
+
   // Chat between Sunita and Amit (with contract)
   const [sunitaAmitChat] = await db.insert(chats).values({
     name: null, // Direct chats don't need a name
@@ -954,7 +981,7 @@ async function main() {
     lastMessageAt: new Date(now.getTime() - 4 * 60 * 60 * 1000), // 4 hours ago
     metadata: {}
   }).returning();
-  
+
   // Add chat members
   await db.insert(chatMembers).values({
     chatId: sunitaAmitChat.id,
@@ -962,14 +989,14 @@ async function main() {
     role: "member",
     isActive: true
   });
-  
+
   await db.insert(chatMembers).values({
     chatId: sunitaAmitChat.id,
     userId: amit.id,
     role: "member",
     isActive: true
   });
-  
+
   // Add messages to the Sunita-Amit chat
   await db.insert(messages).values({
     chatId: sunitaAmitChat.id,
@@ -980,7 +1007,7 @@ async function main() {
     status: "read",
     metadata: {}
   });
-  
+
   // Trade request and contract messages
   await db.insert(messages).values({
     chatId: sunitaAmitChat.id,
@@ -997,7 +1024,7 @@ async function main() {
       totalAmount: 50 * 5200
     }
   });
-  
+
   await db.insert(messages).values({
     chatId: sunitaAmitChat.id,
     senderId: sunita.id,
@@ -1007,7 +1034,7 @@ async function main() {
     status: "read",
     metadata: {}
   });
-  
+
   await db.insert(messages).values({
     chatId: sunitaAmitChat.id,
     senderId: sunita.id,
@@ -1021,7 +1048,7 @@ async function main() {
       title: "Purchase Agreement - 50 Quintals Chana"
     }
   });
-  
+
   await db.insert(messages).values({
     chatId: sunitaAmitChat.id,
     senderId: amit.id,
@@ -1035,7 +1062,7 @@ async function main() {
       title: "Purchase Agreement - 50 Quintals Chana"
     }
   });
-  
+
   await db.insert(messages).values({
     chatId: sunitaAmitChat.id,
     senderId: sunita.id,
@@ -1045,7 +1072,7 @@ async function main() {
     status: "read",
     metadata: {}
   });
-  
+
   // Create a group chat for Bikaner circle
   const [bikanerGroupChat] = await db.insert(chats).values({
     name: "Bikaner APMC Traders",
@@ -1059,7 +1086,7 @@ async function main() {
       icon: "group-chat"
     }
   }).returning();
-  
+
   // Add members to the group
   await db.insert(chatMembers).values({
     chatId: bikanerGroupChat.id,
@@ -1067,21 +1094,21 @@ async function main() {
     role: "admin",
     isActive: true
   });
-  
+
   await db.insert(chatMembers).values({
     chatId: bikanerGroupChat.id,
     userId: priya.id,
     role: "member",
     isActive: true
   });
-  
+
   await db.insert(chatMembers).values({
     chatId: bikanerGroupChat.id,
     userId: rajesh.id,
     role: "member",
     isActive: true
   });
-  
+
   // Add some group messages
   await db.insert(messages).values({
     chatId: bikanerGroupChat.id,
@@ -1092,7 +1119,7 @@ async function main() {
     status: "read",
     metadata: {}
   });
-  
+
   await db.insert(messages).values({
     chatId: bikanerGroupChat.id,
     senderId: priya.id,
@@ -1102,7 +1129,7 @@ async function main() {
     status: "read",
     metadata: {}
   });
-  
+
   await db.insert(messages).values({
     chatId: bikanerGroupChat.id,
     senderId: rajesh.id,
@@ -1112,7 +1139,7 @@ async function main() {
     status: "read",
     metadata: {}
   });
-  
+
   await db.insert(messages).values({
     chatId: bikanerGroupChat.id,
     senderId: sunita.id,
@@ -1122,7 +1149,7 @@ async function main() {
     status: "read",
     metadata: {}
   });
-  
+
   console.log("Seeding completed successfully!");
   process.exit(0);
 }
