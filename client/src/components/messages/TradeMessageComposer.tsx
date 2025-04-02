@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
-import { Send, Template } from 'lucide-react';
+import { Send, FileText } from 'lucide-react';
 import { MessageTemplateSelector } from './MessageTemplateSelector';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -36,24 +36,22 @@ export const TradeMessageComposer: React.FC<Props> = ({
     if (!message.trim()) return;
 
     try {
-      const response = await apiRequest('/api/messages', {
-        method: 'POST',
-        body: {
+      const response = await apiRequest('POST', '/api/messages', {
           recipientId,
           content: message,
           type: messageType,
           commodityId
-        }
       });
 
-      if (response.message) {
+      const responseData = await response.json();
+      if (responseData) {
         toast({
           title: 'Message sent',
           description: 'Your message has been sent successfully.'
         });
         
         setMessage('');
-        onSend?.(response.message);
+        onSend?.(responseData);
         onClose?.();
       }
     } catch (error) {
@@ -78,7 +76,7 @@ export const TradeMessageComposer: React.FC<Props> = ({
               size="sm"
               onClick={() => setIsTemplateSelectorOpen(true)}
             >
-              <Template className="h-4 w-4 mr-2" />
+              <FileText className="h-4 w-4 mr-2" />
               Templates
             </Button>
           </div>
@@ -99,10 +97,19 @@ export const TradeMessageComposer: React.FC<Props> = ({
 
         {isTemplateSelectorOpen && (
           <MessageTemplateSelector
+            userId={userId}
             onSelect={(template) => {
-              setMessage(template);
+              // Assuming template is an object with a content field
+              if (typeof template === 'object' && template.content) {
+                setMessage(template.content);
+              } else if (typeof template === 'string') {
+                setMessage(template);
+              }
               setIsTemplateSelectorOpen(false);
             }}
+            onEdit={() => {}}
+            onDelete={() => {}}
+            onCreateNew={() => {}}
           />
         )}
       </DialogContent>
