@@ -22,14 +22,21 @@ async function hashPassword(password: string) {
 }
 
 async function comparePasswords(supplied: string, stored: string) {
+  if (!supplied || !stored) {
+    return false;
+  }
+  
   try {
-    if (!stored || !stored.includes('.')) {
-      return false;
+    if (!stored.includes('.')) {
+      // For test accounts that might have plain text passwords
+      return supplied === stored;
     }
+    
     const [hashed, salt] = stored.split(".");
     if (!hashed || !salt) {
       return false;
     }
+    
     const hashedBuf = Buffer.from(hashed, "hex");
     const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
     return timingSafeEqual(hashedBuf, suppliedBuf);
@@ -104,34 +111,33 @@ export function setupAuth(app: Express) {
 
   app.post("/api/auth/login", async (req, res, next) => {
     try {
-      if (!req.body.username || !req.body.password) {
+      const { username, password } = req.body;
+      
+      if (!username || !password) {
         return res.status(400).json({ message: "Username and password are required" });
       }
 
-      return new Promise((resolve) => {
-        passport.authenticate("local", (err: Error, user: Express.User, info: any) => {
-          if (err) {
-            console.error("Login error:", err);
-            return res.status(500).json({ message: "Authentication failed" });
-          }
-          
-          if (!user) {
-            return res.status(401).json({ message: info?.message || "Invalid credentials" });
-          }
-          
-          req.login(user, (loginErr) => {
-            if (loginErr) {
-              console.error("Session error:", loginErr);
-              return res.status(500).json({ message: "Session creation failed" });
-            }
-            res.status(200).json({ user });
-            resolve();
-          });
-        })(req, res, next);
+      const user = await storage.getUserByUsername(username);
+      if (!user) {
+        return res.status(401).json({ message: "Invalid username or password" });
+      }
+
+      const isValidPassword = await comparePasswords(password, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ message: "Invalid username or password" });
+      }
+
+      req.login(user, (err) => {
+        if (err) {
+          console.error("Session error:", err);
+          return res.status(500).json({ message: "Session creation failed" });
+        }
+        return res.status(200).json({ user });
       });
+
     } catch (error) {
-      console.error("Unexpected login error:", error);
-      res.status(500).json({ message: "Login failed" });
+      console.error("Login error:", error);
+      return res.status(500).json({ message: "Internal server error" });
     }
   });
 
