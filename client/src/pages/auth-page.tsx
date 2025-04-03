@@ -48,10 +48,10 @@ const AuthPage = () => {
 
   // Redirect to home if already logged in
   useEffect(() => {
-    if (user) {
+    if (user && !isLoading) {
       setLocation("/");
     }
-  }, [user, setLocation]);
+  }, [user, isLoading, setLocation]);
   
   // Login form setup
   const loginForm = useForm<LoginFormValues>({
