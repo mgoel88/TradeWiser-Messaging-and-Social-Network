@@ -2,10 +2,8 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
-import session from "express-session";
-import MemoryStore from "memorystore";
+import { setupAuth } from "./auth";
 import passport from "passport";
-import { Strategy as LocalStrategy } from "passport-local";
 import { notifyNewListing, notifyOfferReceived, notifyTradeUpdate, setupWebsocketServer } from "./notifications";
 import { getRecommendedConnections, getComplementaryBusinessConnections, getCommodityConnectionRecommendations } from "./recommendations";
 import { WebSocketServer } from "ws";
@@ -43,53 +41,8 @@ import { fromZodError } from "zod-validation-error";
 // so we won't import them again to avoid duplicates
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Set up session storage
-  const MemoryStoreSession = MemoryStore(session);
-  app.use(
-    session({
-      cookie: { maxAge: 86400000 }, // 24 hours
-      store: new MemoryStoreSession({
-        checkPeriod: 86400000, // prune expired entries every 24h
-      }),
-      resave: false,
-      saveUninitialized: false,
-      secret: process.env.SESSION_SECRET || "krishiconnect-secret",
-    })
-  );
-
-  // Set up passport authentication
-  app.use(passport.initialize());
-  app.use(passport.session());
-
-  passport.use(
-    new LocalStrategy(async (username, password, done) => {
-      try {
-        const user = await storage.getUserByUsername(username);
-        if (!user) {
-          return done(null, false, { message: "Incorrect username" });
-        }
-        if (user.password !== password) {
-          return done(null, false, { message: "Incorrect password" });
-        }
-        return done(null, user);
-      } catch (error) {
-        return done(error);
-      }
-    })
-  );
-
-  passport.serializeUser((user: any, done) => {
-    done(null, user.id);
-  });
-
-  passport.deserializeUser(async (id: number, done) => {
-    try {
-      const user = await storage.getUser(id);
-      done(null, user);
-    } catch (error) {
-      done(error);
-    }
-  });
+  // Set up authentication with PostgreSQL session store
+  setupAuth(app);
 
   // Error handling middleware for Zod validation errors
   const handleZodError = (err: unknown, res: Response) => {
@@ -108,30 +61,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(401).json({ message: "Not authenticated" });
   };
 
-  // Authentication routes
-  app.post("/api/auth/register", async (req, res) => {
+  // Authentication routes are handled in auth.ts, but let's also add some compatibility routes
+  // for the existing frontend code that might be using /api/auth/* patterns
+
+  app.post("/api/auth/register", (req, res, next) => {
     try {
-      const userData = insertUserSchema.parse(req.body);
-      
-      // Check if username already exists
-      const existingUser = await storage.getUserByUsername(userData.username);
-      if (existingUser) {
-        return res.status(400).json({ message: "Username already exists" });
-      }
-
-      // Check if email already exists
-      const existingEmail = await storage.getUserByEmail(userData.email);
-      if (existingEmail) {
-        return res.status(400).json({ message: "Email already exists" });
-      }
-
-      const newUser = await storage.createUser(userData);
-      req.login(newUser, (err) => {
-        if (err) {
-          return res.status(500).json({ message: "Login failed after registration" });
-        }
-        return res.status(201).json({ user: newUser });
-      });
+      userLoginSchema.parse(req.body);
+      // Add other validation if needed
+      // Forward the request to the auth module
+      passport.authenticate("local", (err: any, user: any, info: any) => {
+        if (err) return next(err);
+        if (!user) return res.status(401).json({ message: info?.message || "Authentication failed" });
+        
+        req.login(user, (err: any) => {
+          if (err) return next(err);
+          res.json({ user });
+        });
+      })(req, res, next);
     } catch (err) {
       return handleZodError(err, res);
     }
@@ -140,18 +86,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/login", (req, res, next) => {
     try {
       userLoginSchema.parse(req.body);
-      passport.authenticate("local", (err, user, info) => {
-        if (err) {
-          return next(err);
-        }
-        if (!user) {
-          return res.status(401).json({ message: info.message });
-        }
-        req.login(user, (err) => {
-          if (err) {
-            return next(err);
-          }
-          return res.json({ user });
+      // Forward the request to the passport auth middleware
+      passport.authenticate("local", (err: any, user: any, info: any) => {
+        if (err) return next(err);
+        if (!user) return res.status(401).json({ message: info?.message || "Authentication failed" });
+        
+        req.login(user, (err: any) => {
+          if (err) return next(err);
+          res.json({ user });
         });
       })(req, res, next);
     } catch (err) {
@@ -160,7 +102,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/auth/logout", (req, res) => {
-    req.logout(() => {
+    req.logout((err: any) => {
+      if (err) return res.status(500).json({ message: "Error during logout" });
       res.json({ message: "Logged out successfully" });
     });
   });

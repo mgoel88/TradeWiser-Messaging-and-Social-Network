@@ -24,7 +24,14 @@ import { db } from "./db";
 import { eq, and, or, desc, asc, gt, not, sql } from "drizzle-orm";
 
 // Storage interface for all data operations
+import session from "express-session";
+import connectPg from "connect-pg-simple";
+import { pool } from "./db";
+
 export interface IStorage {
+  // Session store
+  sessionStore: session.Store;
+
   // User operations
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
@@ -192,7 +199,16 @@ export interface IStorage {
 
 // Database storage implementation
 export class DatabaseStorage implements IStorage {
-  // No constructor needed for database-backed storage
+  sessionStore: session.Store;
+
+  constructor() {
+    const PostgresSessionStore = connectPg(session);
+    this.sessionStore = new PostgresSessionStore({
+      pool,
+      createTableIfMissing: true,
+      tableName: 'session',
+    });
+  }
 
   // User operations
   async getUser(id: number): Promise<User | undefined> {

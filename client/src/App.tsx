@@ -1,6 +1,5 @@
-import { useEffect } from "react";
 import { Switch, Route, useLocation } from "wouter";
-import { queryClient, getQueryFn } from "./lib/queryClient";
+import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import NotFound from "@/pages/not-found";
@@ -9,8 +8,7 @@ import Profile from "@/pages/profile";
 import Circles from "@/pages/circles";
 import Commodities from "@/pages/commodities";
 import KYC from "@/pages/kyc";
-import Login from "@/pages/login";
-import Register from "@/pages/register";
+import AuthPage from "@/pages/auth-page";
 import Messages from "@/pages/messages-new";
 import Assets from "@/pages/assets";
 import Connections from "@/pages/connections";
@@ -19,82 +17,50 @@ import Marketplace from "@/pages/marketplace";
 import MarketplaceNew from "@/pages/marketplace-new";
 import TradingTemplates from "@/pages/trading-templates";
 import Contracts from "@/pages/contracts";
-import { useQuery } from "@tanstack/react-query";
 import Header from "./components/layout/Header";
 import Footer from "./components/layout/Footer";
 import MobileNavigation from "./components/layout/MobileNavigation";
 import { NotificationsProvider } from "./components/notifications";
+import { AuthProvider } from "@/hooks/use-auth";
+import { ProtectedRoute } from "@/lib/protected-route";
 
 function Router() {
-  const [location, setLocation] = useLocation();
-  const { data: session } = useQuery<{ user?: any; message?: string }>({ 
-    queryKey: ['/api/auth/session'],
-    retry: false,
-    staleTime: 0,
-    queryFn: getQueryFn({ on401: "returnNull" })
-  });
-
-  // Redirect to login if not authenticated, except for public pages
-  useEffect(() => {
-    const publicPages = ['/login', '/register'];
-    const isPrivatePage = !publicPages.includes(location);
-
-    if (isPrivatePage && (!session || (session && typeof session === 'object' && 'message' in session && session.message === "Not authenticated"))) {
-      setLocation('/login');
-    }
-
-    // Redirect to home if already authenticated and trying to access login/register
-    if (publicPages.includes(location) && session && typeof session === 'object' && 'user' in session && session.user) {
-      setLocation('/');
-    }
-  }, [location, session, setLocation]);
-
   return (
     <Switch>
-      <Route path="/login" component={Login} />
-      <Route path="/register" component={Register} />
-      <Route path="/" component={Home} />
-      <Route path="/profile/:id?" component={Profile} />
-      <Route path="/circles" component={Circles} />
-      <Route path="/commodities" component={Commodities} />
-      <Route path="/kyc" component={KYC} />
-      <Route path="/messages" component={Messages} />
-      <Route path="/connections" component={Connections} />
-      <Route path="/assets" component={Assets} />
-      <Route path="/market-news" component={MarketNews} />
-      <Route path="/marketplace" component={Marketplace} />
-      <Route path="/marketplace/new" component={MarketplaceNew} />
-      <Route path="/trading-templates" component={TradingTemplates} />
-      <Route path="/contracts" component={Contracts} />
+      <Route path="/auth" component={AuthPage} />
+      <ProtectedRoute path="/" component={Home} />
+      <ProtectedRoute path="/profile/:id?" component={Profile} />
+      <ProtectedRoute path="/circles" component={Circles} />
+      <ProtectedRoute path="/commodities" component={Commodities} />
+      <ProtectedRoute path="/kyc" component={KYC} />
+      <ProtectedRoute path="/messages" component={Messages} />
+      <ProtectedRoute path="/connections" component={Connections} />
+      <ProtectedRoute path="/assets" component={Assets} />
+      <ProtectedRoute path="/market-news" component={MarketNews} />
+      <ProtectedRoute path="/marketplace" component={Marketplace} />
+      <ProtectedRoute path="/marketplace/new" component={MarketplaceNew} />
+      <ProtectedRoute path="/trading-templates" component={TradingTemplates} />
+      <ProtectedRoute path="/contracts" component={Contracts} />
       <Route component={NotFound} />
     </Switch>
   );
 }
 
-function Onboarding() {
-  // Placeholder for a more complex onboarding experience
-  return (
-    <div>
-      <h1>Welcome to the App!</h1>
-      <p>This is a placeholder for a more detailed onboarding experience.</p>
-    </div>
-  );
-}
-
 function App() {
   const [location] = useLocation();
-  const isAuthPage = location === '/login' || location === '/register';
+  const isAuthPage = location === '/auth';
 
   return (
     <QueryClientProvider client={queryClient}>
-      <NotificationsProvider>
-        {!isAuthPage && <Header />}
-        <Router />
-        {!isAuthPage && <Footer />}
-        {!isAuthPage && <MobileNavigation />}
-        <Toaster />
-        <Onboarding />
-      </NotificationsProvider>
+      <AuthProvider>
+        <NotificationsProvider>
+          {!isAuthPage && <Header />}
+          <Router />
+          {!isAuthPage && <Footer />}
+          {!isAuthPage && <MobileNavigation />}
+          <Toaster />
+        </NotificationsProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
