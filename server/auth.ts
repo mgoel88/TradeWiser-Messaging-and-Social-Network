@@ -22,10 +22,21 @@ async function hashPassword(password: string) {
 }
 
 async function comparePasswords(supplied: string, stored: string) {
-  const [hashed, salt] = stored.split(".");
-  const hashedBuf = Buffer.from(hashed, "hex");
-  const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
-  return timingSafeEqual(hashedBuf, suppliedBuf);
+  try {
+    if (!stored || !stored.includes('.')) {
+      return false;
+    }
+    const [hashed, salt] = stored.split(".");
+    if (!hashed || !salt) {
+      return false;
+    }
+    const hashedBuf = Buffer.from(hashed, "hex");
+    const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
+    return timingSafeEqual(hashedBuf, suppliedBuf);
+  } catch (error) {
+    console.error('Password comparison error:', error);
+    return false;
+  }
 }
 
 export function setupAuth(app: Express) {
@@ -91,29 +102,37 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/auth/login", (req, res, next) => {
-    if (!req.body.username || !req.body.password) {
-      return res.status(400).json({ message: "Username and password are required" });
-    }
+  app.post("/api/auth/login", async (req, res, next) => {
+    try {
+      if (!req.body.username || !req.body.password) {
+        return res.status(400).json({ message: "Username and password are required" });
+      }
 
-    passport.authenticate("local", (err: Error, user: Express.User, info: any) => {
-      if (err) {
-        console.error("Login error:", err);
-        return res.status(500).json({ message: "Internal server error" });
-      }
-      
-      if (!user) {
-        return res.status(401).json({ message: info?.message || "Invalid username or password" });
-      }
-      
-      req.login(user, (loginErr) => {
-        if (loginErr) {
-          console.error("Session error:", loginErr);
-          return res.status(500).json({ message: "Error creating session" });
-        }
-        return res.status(200).json({ user });
+      return new Promise((resolve) => {
+        passport.authenticate("local", (err: Error, user: Express.User, info: any) => {
+          if (err) {
+            console.error("Login error:", err);
+            return res.status(500).json({ message: "Authentication failed" });
+          }
+          
+          if (!user) {
+            return res.status(401).json({ message: info?.message || "Invalid credentials" });
+          }
+          
+          req.login(user, (loginErr) => {
+            if (loginErr) {
+              console.error("Session error:", loginErr);
+              return res.status(500).json({ message: "Session creation failed" });
+            }
+            res.status(200).json({ user });
+            resolve();
+          });
+        })(req, res, next);
       });
-    })(req, res, next);
+    } catch (error) {
+      console.error("Unexpected login error:", error);
+      res.status(500).json({ message: "Login failed" });
+    }
   });
 
   app.post("/api/auth/logout", (req, res, next) => {
