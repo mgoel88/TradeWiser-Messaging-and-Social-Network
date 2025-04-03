@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Leaf, Home, Users, MapPin, Bell, Search, Menu, X, Newspaper, BarChart3 } from "lucide-react";
 import { APP_NAME } from "@/lib/constants";
-import { queryClient } from "@/lib/queryClient";
-import { apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, getQueryFn } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLanguage } from "@/lib/i18n";
@@ -29,18 +28,19 @@ const Header = () => {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const { data: sessionData = {}, isLoading } = useQuery<{ user?: any }>({
-    queryKey: ['/api/auth/session'],
+    queryKey: ['/api/user'],
+    queryFn: getQueryFn({ on401: "returnNull" }),
   });
 
   const user = sessionData?.user;
 
   const handleLogout = async () => {
     try {
-      await apiRequest("POST", "/api/auth/logout", {});
+      await apiRequest("POST", "/api/logout", {});
       // Invalidate the session query
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/session'] });
-      // Redirect to login page
-      setLocation("/login");
+      queryClient.invalidateQueries({ queryKey: ['/api/user'] });
+      // Redirect to auth page
+      setLocation("/auth");
       toast({
         title: t("messages.success.logout"),
         description: t("messages.success.logout_description"),
@@ -147,7 +147,7 @@ const Header = () => {
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <Button variant="default" onClick={() => setLocation("/login")}>
+              <Button variant="default" onClick={() => setLocation("/auth")}>
                 {t("auth.login")}
               </Button>
             )}
