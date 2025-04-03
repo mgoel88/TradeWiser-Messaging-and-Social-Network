@@ -1,13 +1,13 @@
 import type { Express, Request, Response } from "express";
-import { createServer, type Server } from "http";
+import { createServer, Server } from "http";
+import { WebSocketServer } from "ws";
 import { storage } from "./storage";
 import { z } from "zod";
 import { setupAuth } from "./auth";
 import passport from "passport";
 import { notifyNewListing, notifyOfferReceived, notifyTradeUpdate, setupWebsocketServer } from "./notifications";
 import { getRecommendedConnections, getComplementaryBusinessConnections, getCommodityConnectionRecommendations } from "./recommendations";
-import { WebSocketServer } from "ws";
-import { 
+import {
   userLoginSchema,
   insertUserCircleSchema,
 } from "@shared/schema";
@@ -15,18 +15,17 @@ import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Create Server instance first
   const httpServer = createServer(app);
-  
+
   // Set up authentication with PostgreSQL session store
   setupAuth(app);
-  
+
   // Add a simple API status route to ensure API paths are working
   app.get("/api/status", (req, res) => {
     console.log("Status API called");
     res.json({ status: "ok", time: new Date().toISOString() });
   });
-  
+
   // Debug route to check if API routes are correctly configured
   app.get("/api-test", (req, res) => {
     console.log("API Test route called");
@@ -61,7 +60,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       passport.authenticate("local", (err: any, user: any, info: any) => {
         if (err) return next(err);
         if (!user) return res.status(401).json({ message: info?.message || "Authentication failed" });
-        
+
         req.login(user, (err: any) => {
           if (err) return next(err);
           res.json({ user });
@@ -79,7 +78,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       passport.authenticate("local", (err: any, user: any, info: any) => {
         if (err) return next(err);
         if (!user) return res.status(401).json({ message: info?.message || "Authentication failed" });
-        
+
         req.login(user, (err: any) => {
           if (err) return next(err);
           res.json({ user });
@@ -127,8 +126,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Set up WebSocket server for real-time messaging
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
-  
+
   setupWebsocketServer(wss);
-  
+
   return httpServer;
 }
