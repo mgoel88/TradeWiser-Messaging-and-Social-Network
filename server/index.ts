@@ -67,5 +67,6 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`Server running at http://0.0.0.0:${port}`);
+    log(`WebSocket server running on ws://0.0.0.0:${port}`);
   });
 })();
