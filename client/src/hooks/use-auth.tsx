@@ -28,8 +28,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     data: sessionData,
     error,
     isLoading,
-  } = useQuery<{user: SelectUser} | null, Error>({
-    queryKey: ['/api/auth/session'],
+  } = useQuery<SelectUser | null, Error>({
+    queryKey: ['/api/user'],
     queryFn: getQueryFn({ on401: "returnNull" }),
   });
 
@@ -40,7 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return data.user;
     },
     onSuccess: (user: SelectUser) => {
-      queryClient.setQueryData(['/api/auth/session'], { user });
+      queryClient.setQueryData(['/api/user'], user);
     },
     onError: (error: Error) => {
       toast({
@@ -58,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return data.user;
     },
     onSuccess: (user: SelectUser) => {
-      queryClient.setQueryData(['/api/auth/session'], { user });
+      queryClient.setQueryData(['/api/user'], user);
     },
     onError: (error: Error) => {
       toast({
@@ -74,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await apiRequest("POST", "/api/auth/logout");
     },
     onSuccess: () => {
-      queryClient.setQueryData(['/api/auth/session'], null);
+      queryClient.setQueryData(['/api/user'], null);
     },
     onError: (error: Error) => {
       toast({
@@ -88,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
-        user: sessionData?.user ?? null,
+        user: sessionData ?? null,
         isLoading,
         error,
         loginMutation,

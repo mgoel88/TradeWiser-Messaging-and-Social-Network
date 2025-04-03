@@ -110,8 +110,8 @@ export function setupAuth(app: Express) {
     });
   });
 
-  app.get("/api/auth/session", (req, res) => {
+  app.get("/api/user", (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
-    res.json({ user: req.user });
+    res.json(req.user);
   });
 }

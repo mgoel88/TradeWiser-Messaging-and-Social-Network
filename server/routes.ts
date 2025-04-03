@@ -37,12 +37,27 @@ import {
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 
-// Import necessary modules, we already have these imported elsewhere
-// so we won't import them again to avoid duplicates
+// Module imports are complete, no need for additional imports
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Create Server instance first
+  const httpServer = createServer(app);
+  
   // Set up authentication with PostgreSQL session store
   setupAuth(app);
+  
+  // Add a simple API status route to ensure API paths are working
+  app.get("/api/status", (req, res) => {
+    console.log("Status API called");
+    res.json({ status: "ok", time: new Date().toISOString() });
+  });
+  
+  // Debug route to check if API routes are correctly configured
+  app.get("/api-test", (req, res) => {
+    console.log("API Test route called");
+    res.setHeader('Content-Type', 'application/json');
+    res.send(JSON.stringify({ status: "ok", message: "API routes are working" }));
+  });
 
   // Error handling middleware for Zod validation errors
   const handleZodError = (err: unknown, res: Response) => {
@@ -113,6 +128,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json({ user: req.user });
     }
     return res.status(401).json({ message: "Not authenticated" });
+  });
+
+  // Debug route to check current user - make sure to remove in production
+  app.get("/api/current-user", (req, res) => {
+    console.log("Current user:", req.user);
+    console.log("Is authenticated:", req.isAuthenticated());
+    return res.json({
+      isAuthenticated: req.isAuthenticated(),
+      user: req.user || null
+    });
   });
 
   // User routes
@@ -3065,8 +3090,6 @@ For full details, please login to WizXConnect.
       return res.status(500).json({ message: "Internal server error" });
     }
   });
-  
-  const httpServer = createServer(app);
   
   // Set up WebSocket server for real-time messaging
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
