@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Trader Avatar (Highlighted) -->
+  
+  <!-- Glow effect -->
+  <circle cx="100" cy="100" r="95" fill="#ecf0f1"/>
+  <circle cx="100" cy="100" r="90" fill="#d6eaf8" stroke="#3498db" stroke-width="3"/>
+  
+  <!-- Head -->
+  <circle cx="100" cy="85" r="50" fill="#f5cfa3"/>
+  
+  <!-- Hair -->
+  <path d="M70 50c0 0 -15 10 -15 25 0 5 5 15 5 15h80c0 0 5 -10 5 -15 0 -15 -15 -25 -15 -25z" fill="#2c3e50"/>
+  
+  <!-- Business attire collar (brighter) -->
+  <path d="M70 140c0 0 5 -10 30 -10s30 10 30 10l10 30h-80l10 -30z" fill="#2980b9"/>
+  
+  <!-- Shirt (brighter) -->
+  <path d="M60 150c0-20 20-30 40-30s40 10 40 30" fill="#2980b9"/>
+  
+  <!-- Tie (brighter) -->
+  <path d="M100 130l5 10 -5 30 -5 -30z" fill="#c0392b"/>
+  
+  <!-- Eyes -->
+  <circle cx="80" cy="85" r="5" fill="#2c3e50"/>
+  <circle cx="120" cy="85" r="5" fill="#2c3e50"/>
+  
+  <!-- Eyebrows -->
+  <path d="M75 75c0 0 5 -5 10 0" stroke="#2c3e50" stroke-width="2" fill="none"/>
+  <path d="M115 75c0 0 5 -5 10 0" stroke="#2c3e50" stroke-width="2" fill="none"/>
+  
+  <!-- Nose -->
+  <path d="M100 90c0 0 5 5 0 10" stroke="#c0392b" stroke-width="2" fill="none"/>
+  
+  <!-- Smile (happier expression) -->
+  <path d="M85 110c5 5 25 5 30 0" stroke="#2c3e50" stroke-width="2" fill="none"/>
+  
+  <!-- Glasses (gold trim) -->
+  <circle cx="80" cy="85" r="10" stroke="#f39c12" stroke-width="2" fill="none"/>
+  <circle cx="120" cy="85" r="10" stroke="#f39c12" stroke-width="2" fill="none"/>
+  <line x1="90" y1="85" x2="110" y2="85" stroke="#f39c12" stroke-width="2"/>
+</svg>

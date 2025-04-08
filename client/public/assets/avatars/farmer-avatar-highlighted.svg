@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Farmer Avatar (Highlighted) -->
+  
+  <!-- Glow effect -->
+  <circle cx="100" cy="100" r="95" fill="#f0f4e8"/>
+  <circle cx="100" cy="100" r="90" fill="#e6f7d9" stroke="#27ae60" stroke-width="3"/>
+  
+  <!-- Head -->
+  <circle cx="100" cy="85" r="50" fill="#f9d9af"/>
+  
+  <!-- Hat (Farmer's Pagri) -->
+  <path d="M100 30c-30 0-55 10-55 20 0 8 25 15 55 15s55-7 55-15c0-10-25-20-55-20z" fill="#d9ab7a"/>
+  <path d="M60 50c0 0 10-10 40-10s40 10 40 10c0 0-10 15-40 15s-40-15-40-15z" fill="#e67e22"/>
+
+  <!-- Eyes -->
+  <circle cx="80" cy="85" r="5" fill="#35495e"/>
+  <circle cx="120" cy="85" r="5" fill="#35495e"/>
+  
+  <!-- Eyebrows -->
+  <path d="M75 75c2-2 10-2 10 0" stroke="#35495e" stroke-width="2" fill="none"/>
+  <path d="M115 75c2-2 10-2 10 0" stroke="#35495e" stroke-width="2" fill="none"/>
+  
+  <!-- Nose -->
+  <path d="M100 90c0 0 5 5 0 10" stroke="#d35400" stroke-width="2" fill="none"/>
+  
+  <!-- Smile (happier expression) -->
+  <path d="M85 110c5 5 25 5 30 0" stroke="#35495e" stroke-width="2" fill="none"/>
+  
+  <!-- Beard/Mustache -->
+  <path d="M90 100c3 3 17 3 20 0" stroke="#7f8c8d" stroke-width="2" fill="none"/>
+  
+  <!-- Farmer clothing (brighter) -->
+  <path d="M60 150c0-20 20-30 40-30s40 10 40 30" fill="#2ecc71"/>
+  
+  <!-- Neck -->
+  <rect x="90" y="130" width="20" height="10" fill="#f5cfa3"/>
+  
+  <!-- Overalls straps (brighter) -->
+  <rect x="85" y="140" width="10" height="30" fill="#3498db"/>
+  <rect x="105" y="140" width="10" height="30" fill="#3498db"/>
+</svg>

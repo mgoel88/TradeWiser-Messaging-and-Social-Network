@@ -23,6 +23,7 @@ import MobileNavigation from "./components/layout/MobileNavigation";
 import { NotificationsProvider } from "./components/notifications";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "@/lib/protected-route";
+import { OnboardingProvider } from "@/components/onboarding";
 
 function Router() {
   return (
@@ -53,13 +54,15 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <NotificationsProvider>
-          {!isAuthPage && <Header />}
-          <Router />
-          {!isAuthPage && <Footer />}
-          {!isAuthPage && <MobileNavigation />}
-          <Toaster />
-        </NotificationsProvider>
+        <OnboardingProvider>
+          <NotificationsProvider>
+            {!isAuthPage && <Header />}
+            <Router />
+            {!isAuthPage && <Footer />}
+            {!isAuthPage && <MobileNavigation />}
+            <Toaster />
+          </NotificationsProvider>
+        </OnboardingProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
