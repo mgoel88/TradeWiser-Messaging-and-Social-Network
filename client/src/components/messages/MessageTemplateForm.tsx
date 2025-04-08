@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +15,8 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { MessageTemplate } from './MessageTemplateSelector';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Share2, WhatsappIcon } from 'lucide-react';
 
 interface MessageTemplateFormProps {
   userId?: number;
@@ -36,37 +39,47 @@ export function MessageTemplateForm({
   const [templateText, setTemplateText] = useState(template?.template || '');
   const [templateType, setTemplateType] = useState(template?.templateType || 'buy_request');
   const [isFavorite, setIsFavorite] = useState(template?.isFavorite || false);
+  const [enableWhatsapp, setEnableWhatsapp] = useState(template?.enableWhatsapp || false);
+  const [whatsappNumber, setWhatsappNumber] = useState(template?.whatsappNumber || '');
   
+  // Commodity specs state
+  const [commoditySpecs, setCommoditySpecs] = useState({
+    commodity: template?.defaultValues?.commodity || '',
+    quality: template?.defaultValues?.quality || '',
+    pricePerUnit: template?.defaultValues?.pricePerUnit || '',
+    quantity: template?.defaultValues?.quantity || '',
+    location: template?.defaultValues?.location || '',
+    deliveryTerms: template?.defaultValues?.deliveryTerms || '',
+    paymentTerms: template?.defaultValues?.paymentTerms || '',
+  });
+
   // Template type options
   const templateTypes = [
     { value: 'buy_request', label: 'Buy Request' },
     { value: 'sell_offer', label: 'Sell Offer' },
-    { value: 'negotiation', label: 'Negotiation' },
-    { value: 'contract_proposal', label: 'Contract Proposal' },
-    { value: 'contract_accepted', label: 'Contract Accepted' },
-    { value: 'custom', label: 'Custom' }
+    { value: 'price_quote', label: 'Price Quote Request' },
+    { value: 'broadcast', label: 'Broadcast Message' }
   ];
-  
-  // Template placeholder suggestions
-  const placeholders = [
-    { key: '{commodity}', description: 'Commodity name' },
-    { key: '{quantity}', description: 'Quantity offered/requested' },
-    { key: '{unit}', description: 'Unit of measurement' },
-    { key: '{price}', description: 'Price per unit' },
-    { key: '{quality}', description: 'Quality specifications' },
-    { key: '{location}', description: 'Delivery location' },
-    { key: '{delivery_date}', description: 'Delivery date' },
-    { key: '{payment_terms}', description: 'Payment terms' }
-  ];
-  
-  // Insert placeholder at cursor position
-  const insertPlaceholder = (placeholder: string) => {
-    setTemplateText((currentText) => {
-      return currentText + placeholder;
-    });
+
+  const handleSpecChange = (field: string, value: string) => {
+    setCommoditySpecs(prev => ({
+      ...prev,
+      [field]: value
+    }));
+
+    // Auto-update template text based on type
+    const specs = { ...commoditySpecs, [field]: value };
+    let newText = '';
+    
+    if (templateType === 'buy_request') {
+      newText = `Looking to buy ${specs.commodity}\n\nSpecs:\n- Quality: ${specs.quality}\n- Quantity: ${specs.quantity}\n- Price: ${specs.pricePerUnit}\n- Location: ${specs.location}\n- Delivery: ${specs.deliveryTerms}\n- Payment: ${specs.paymentTerms}\n\nPlease respond with your best offer.`;
+    } else if (templateType === 'sell_offer') {
+      newText = `Offering ${specs.commodity}\n\nSpecs:\n- Quality: ${specs.quality}\n- Quantity: ${specs.quantity}\n- Price: ${specs.pricePerUnit}\n- Location: ${specs.location}\n- Delivery: ${specs.deliveryTerms}\n- Payment: ${specs.paymentTerms}\n\nInterested buyers please contact.`;
+    }
+    
+    setTemplateText(newText);
   };
-  
-  // Handle form submission
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -88,7 +101,9 @@ export function MessageTemplateForm({
         template: templateText,
         templateType,
         isFavorite,
-        defaultValues: {},
+        enableWhatsapp,
+        whatsappNumber,
+        defaultValues: commoditySpecs,
         isDefault: false
       };
       
@@ -96,11 +111,9 @@ export function MessageTemplateForm({
       let responseData;
       
       if (template?.id) {
-        // Update existing template
         response = await apiRequest('PUT', `/api/message-templates/${template.id}`, templateData);
         responseData = await response.json();
       } else {
-        // Create new template
         response = await apiRequest('POST', '/api/message-templates', templateData);
         responseData = await response.json();
       }
@@ -128,84 +141,142 @@ export function MessageTemplateForm({
       setIsSubmitting(false);
     }
   };
-  
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="template-name">Template Name *</Label>
-        <Input
-          id="template-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="e.g., Standard Buy Request"
-          required
-        />
-      </div>
-      
-      <div className="space-y-2">
-        <Label htmlFor="template-type">Template Type *</Label>
-        <Select
-          value={templateType}
-          onValueChange={setTemplateType}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select template type" />
-          </SelectTrigger>
-          <SelectContent>
-            {templateTypes.map((type) => (
-              <SelectItem key={type.value} value={type.value}>
-                {type.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      
-      <div className="space-y-2">
-        <div className="flex justify-between items-center">
-          <Label htmlFor="template-text">Template Content *</Label>
-          <div className="text-xs text-muted-foreground">
-            Insert placeholder:
-            <Select onValueChange={insertPlaceholder}>
-              <SelectTrigger className="h-7 ml-2 w-40">
-                <SelectValue placeholder="Add placeholder" />
+      <Tabs defaultValue="specs">
+        <TabsList className="w-full">
+          <TabsTrigger value="specs">Commodity Specs</TabsTrigger>
+          <TabsTrigger value="message">Message</TabsTrigger>
+          <TabsTrigger value="sharing">Sharing Options</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="specs" className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Commodity</Label>
+              <Input 
+                value={commoditySpecs.commodity}
+                onChange={(e) => handleSpecChange('commodity', e.target.value)}
+                placeholder="e.g. Wheat MP Grade"
+              />
+            </div>
+            <div>
+              <Label>Quality Specs</Label>
+              <Input 
+                value={commoditySpecs.quality}
+                onChange={(e) => handleSpecChange('quality', e.target.value)}
+                placeholder="e.g. Moisture 12% max"
+              />
+            </div>
+            <div>
+              <Label>Price (per unit)</Label>
+              <Input 
+                value={commoditySpecs.pricePerUnit}
+                onChange={(e) => handleSpecChange('pricePerUnit', e.target.value)}
+                placeholder="e.g. ₹2500/quintal"
+              />
+            </div>
+            <div>
+              <Label>Quantity</Label>
+              <Input 
+                value={commoditySpecs.quantity}
+                onChange={(e) => handleSpecChange('quantity', e.target.value)}
+                placeholder="e.g. 500 quintals"
+              />
+            </div>
+            <div>
+              <Label>Location</Label>
+              <Input 
+                value={commoditySpecs.location}
+                onChange={(e) => handleSpecChange('location', e.target.value)}
+                placeholder="e.g. Indore"
+              />
+            </div>
+            <div>
+              <Label>Delivery Terms</Label>
+              <Input 
+                value={commoditySpecs.deliveryTerms}
+                onChange={(e) => handleSpecChange('deliveryTerms', e.target.value)}
+                placeholder="e.g. Ex-warehouse"
+              />
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="message" className="space-y-4">
+          <div>
+            <Label>Template Name</Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Standard Wheat Buy Request"
+            />
+          </div>
+
+          <div>
+            <Label>Template Type</Label>
+            <Select value={templateType} onValueChange={setTemplateType}>
+              <SelectTrigger>
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {placeholders.map((placeholder) => (
-                  <SelectItem key={placeholder.key} value={placeholder.key}>
-                    <span className="font-mono text-xs">{placeholder.key}</span>
-                    <span className="ml-2 text-muted-foreground">{placeholder.description}</span>
+                {templateTypes.map(type => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-        </div>
-        <Textarea
-          id="template-text"
-          value={templateText}
-          onChange={(e) => setTemplateText(e.target.value)}
-          placeholder={`Example: I am interested in purchasing {quantity} {unit} of {commodity} at a price of {price}. I need delivery by {delivery_date} to {location}. Please let me know if you can meet these requirements.`}
-          className="h-[200px] font-mono text-sm"
-          required
-        />
-        <div className="text-xs text-muted-foreground">
-          Use placeholders like {'{commodity}'}, {'{quantity}'}, etc. These will be replaced when sending the message.
-        </div>
-      </div>
-      
-      <div className="flex items-center space-x-2">
-        <Checkbox
-          id="is-favorite"
-          checked={isFavorite}
-          onCheckedChange={(checked) => setIsFavorite(checked as boolean)}
-        />
-        <Label htmlFor="is-favorite">
-          Mark as favorite
-        </Label>
-      </div>
-      
-      <div className="flex justify-end space-x-2 pt-2">
+
+          <div>
+            <Label>Message Template</Label>
+            <Textarea
+              value={templateText}
+              onChange={(e) => setTemplateText(e.target.value)}
+              className="min-h-[200px] font-mono"
+            />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="sharing" className="space-y-4">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="enable-whatsapp"
+              checked={enableWhatsapp}
+              onCheckedChange={(checked) => setEnableWhatsapp(checked as boolean)}
+            />
+            <Label htmlFor="enable-whatsapp">
+              Enable WhatsApp Sharing
+            </Label>
+          </div>
+
+          {enableWhatsapp && (
+            <div>
+              <Label>WhatsApp Business Number</Label>
+              <Input
+                value={whatsappNumber}
+                onChange={(e) => setWhatsappNumber(e.target.value)}
+                placeholder="e.g. +919876543210"
+              />
+            </div>
+          )}
+
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="is-favorite"
+              checked={isFavorite}
+              onCheckedChange={(checked) => setIsFavorite(checked as boolean)}
+            />
+            <Label htmlFor="is-favorite">
+              Mark as favorite
+            </Label>
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      <div className="flex justify-end space-x-2 pt-4">
         <Button variant="outline" type="button" onClick={onCancel}>
           Cancel
         </Button>

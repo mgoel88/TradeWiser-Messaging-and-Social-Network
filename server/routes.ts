@@ -1829,6 +1829,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       return res.json({
+
+  // WhatsApp integration routes
+  app.post("/api/messages/whatsapp", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const { templateId, phoneNumbers, message } = req.body;
+      
+      // Get template if templateId is provided
+      let template;
+      if (templateId) {
+        template = await storage.getMessageTemplate(templateId);
+        if (!template) {
+          return res.status(404).json({ message: "Template not found" });
+        }
+      }
+      
+      // Here you would integrate with WhatsApp Business API
+      // For now, return formatted message that would be sent
+      const whatsappMessage = `${message}\n\nRespond via: [Your Trading Platform URL]`;
+      
+      return res.json({
+        success: true,
+        message: whatsappMessage,
+        recipients: phoneNumbers
+      });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Failed to send WhatsApp message" });
+    }
+  });
+
         trade,
         listing,
         offer,
