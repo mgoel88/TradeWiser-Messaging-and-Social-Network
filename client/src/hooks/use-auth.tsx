@@ -35,15 +35,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginData) => {
+      console.log("Login attempt with:", credentials.username);
       const res = await apiRequest("POST", "/api/auth/login", credentials);
       const data = await res.json();
-      return data.user;
+      console.log("Login response:", data);
+      return data.user || data; // Support both response formats
     },
     onSuccess: (user: SelectUser) => {
+      console.log("Login success, setting user data");
       queryClient.setQueryData(['/api/user'], user);
       queryClient.invalidateQueries({ queryKey: ['/api/user'] });
     },
     onError: (error: Error) => {
+      console.error("Login error:", error);
       toast({
         title: "Login failed",
         description: error.message,
@@ -54,14 +58,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const registerMutation = useMutation({
     mutationFn: async (userData: InsertUser) => {
+      console.log("Register attempt with:", userData.username);
       const res = await apiRequest("POST", "/api/auth/register", userData);
       const data = await res.json();
-      return data.user;
+      console.log("Register response:", data);
+      return data.user || data; // Support both response formats
     },
     onSuccess: (user: SelectUser) => {
+      console.log("Registration success, setting user data");
       queryClient.setQueryData(['/api/user'], user);
+      queryClient.invalidateQueries({ queryKey: ['/api/user'] });
     },
     onError: (error: Error) => {
+      console.error("Registration error:", error);
       toast({
         title: "Registration failed",
         description: error.message,
@@ -72,12 +81,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
+      console.log("Logout attempt");
       await apiRequest("POST", "/api/auth/logout");
     },
     onSuccess: () => {
+      console.log("Logout success");
       queryClient.setQueryData(['/api/user'], null);
+      queryClient.invalidateQueries({ queryKey: ['/api/user'] });
     },
     onError: (error: Error) => {
+      console.error("Logout error:", error);
       toast({
         title: "Logout failed",
         description: error.message,

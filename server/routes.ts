@@ -76,53 +76,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(401).json({ message: "Not authenticated" });
   };
 
-  // Authentication routes are handled in auth.ts, but let's also add some compatibility routes
-  // for the existing frontend code that might be using /api/auth/* patterns
-
-  app.post("/api/auth/register", (req, res, next) => {
-    try {
-      userLoginSchema.parse(req.body);
-      // Add other validation if needed
-      // Forward the request to the auth module
-      passport.authenticate("local", (err: any, user: any, info: any) => {
-        if (err) return next(err);
-        if (!user) return res.status(401).json({ message: info?.message || "Authentication failed" });
-        
-        req.login(user, (err: any) => {
-          if (err) return next(err);
-          res.json({ user });
-        });
-      })(req, res, next);
-    } catch (err) {
-      return handleZodError(err, res);
-    }
-  });
-
-  app.post("/api/auth/login", (req, res, next) => {
-    try {
-      userLoginSchema.parse(req.body);
-      // Forward the request to the passport auth middleware
-      passport.authenticate("local", (err: any, user: any, info: any) => {
-        if (err) return next(err);
-        if (!user) return res.status(401).json({ message: info?.message || "Authentication failed" });
-        
-        req.login(user, (err: any) => {
-          if (err) return next(err);
-          res.json({ user });
-        });
-      })(req, res, next);
-    } catch (err) {
-      return handleZodError(err, res);
-    }
-  });
-
-  app.post("/api/auth/logout", (req, res) => {
-    req.logout((err: any) => {
-      if (err) return res.status(500).json({ message: "Error during logout" });
-      res.json({ message: "Logged out successfully" });
-    });
-  });
-
+  // Authentication routes are handled in auth.ts at /api/auth/login, /api/auth/register, /api/auth/logout
+  // But we're also adding a session endpoint for compatibility
+  
   app.get("/api/auth/session", (req, res) => {
     if (req.isAuthenticated()) {
       return res.json({ user: req.user });

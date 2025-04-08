@@ -90,6 +90,7 @@ export function setupAuth(app: Express) {
 
   app.post("/api/auth/register", async (req, res, next) => {
     try {
+      console.log("Register request received:", req.body.username);
       const existingUser = await storage.getUserByUsername(req.body.username);
       if (existingUser) {
         return res.status(400).json({ message: "Username already exists" });
@@ -100,11 +101,17 @@ export function setupAuth(app: Express) {
         password: await hashPassword(req.body.password),
       });
 
+      console.log("User created:", user.id, user.username);
       req.login(user, (err) => {
-        if (err) return next(err);
-        res.status(201).json({ user });
+        if (err) {
+          console.error("Login error after registration:", err);
+          return next(err);
+        }
+        console.log("User logged in after registration");
+        return res.status(201).json({ user });
       });
     } catch (error) {
+      console.error("Registration error:", error);
       next(error);
     }
   });
@@ -113,17 +120,22 @@ export function setupAuth(app: Express) {
     try {
       const { username, password } = req.body;
       
+      console.log("Login attempt for:", username);
+      
       if (!username || !password) {
+        console.log("Login failed: Missing username or password");
         return res.status(400).json({ message: "Username and password are required" });
       }
 
       const user = await storage.getUserByUsername(username);
       if (!user) {
+        console.log("Login failed: User not found");
         return res.status(401).json({ message: "Invalid username or password" });
       }
 
       const isValidPassword = await comparePasswords(password, user.password);
       if (!isValidPassword) {
+        console.log("Login failed: Invalid password");
         return res.status(401).json({ message: "Invalid username or password" });
       }
 
@@ -132,6 +144,7 @@ export function setupAuth(app: Express) {
           console.error("Session error:", err);
           return res.status(500).json({ message: "Session creation failed" });
         }
+        console.log("Login successful for user:", user.id, user.username);
         return res.status(200).json({ user });
       });
 
@@ -142,14 +155,34 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/auth/logout", (req, res, next) => {
+    if (!req.isAuthenticated()) {
+      console.log("Logout attempted when not authenticated");
+      return res.status(200).json({ message: "Already logged out" });
+    }
+
+    const userId = req.user?.id;
+    const username = req.user?.username;
+    console.log("Logout attempt for user:", userId, username);
+
     req.logout((err) => {
-      if (err) return next(err);
-      res.sendStatus(200);
+      if (err) {
+        console.error("Logout error:", err);
+        return next(err);
+      }
+      console.log("Logout successful for user:", userId, username);
+      res.status(200).json({ message: "Logged out successfully" });
     });
   });
 
   app.get("/api/user", (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
+    console.log("GET /api/user called, isAuthenticated:", req.isAuthenticated());
+    
+    if (!req.isAuthenticated()) {
+      console.log("GET /api/user - Not authenticated");
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    console.log("GET /api/user - Returning user:", req.user?.id, req.user?.username);
     res.json(req.user);
   });
 }
